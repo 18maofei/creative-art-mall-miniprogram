@@ -1,0 +1,18 @@
+{
+  "pages": [
+    "pages/home/index",
+    "pages/course/index",
+    "pages/shop/index",
+    "pages/parent/index",
+    "pages/teacher/index",
+    "pages/profile/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "拾色画室",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f5f7f5",
+    "backgroundTextStyle": "light"
+  },
+  "sitemapLocation": "sitemap.json"
+}

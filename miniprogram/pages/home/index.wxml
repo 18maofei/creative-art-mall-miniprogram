@@ -1,0 +1,25 @@
+<view class="page">
+  <view class="hero">
+    <view class="hero-art hero-ring"></view><view class="hero-art hero-mountain"></view>
+    <view class="eyebrow">拾色画室 · 少儿美术</view>
+    <view class="hero-title">看见孩子的<br/>创造力</view>
+    <view class="hero-copy">艺术启蒙、课程服务与成长陪伴<br/>从一节体验课开始</view>
+    <button class="hero-btn" bindtap="reserve">预约试听</button>
+  </view>
+
+  <view class="section quick-grid">
+    <view class="quick-item" bindtap="goCourse"><view class="quick-icon green">课</view><text>课程报名</text></view>
+    <view class="quick-item" bindtap="goShop"><view class="quick-icon orange">购</view><text>周边商城</text></view>
+    <view class="quick-item" bindtap="goParent"><view class="quick-icon blue">家</view><text>家长入口</text></view>
+    <view class="quick-item" bindtap="goTeacher"><view class="quick-icon purple">师</view><text>教师入口</text></view>
+  </view>
+
+  <view class="section"><view class="section-head"><text class="section-title">课堂作品</text><text class="section-link">查看全部</text></view>
+    <view class="art-grid"><view class="art-card ochre"><view class="circle"></view><text>课堂作品</text></view><view class="art-card teal"><view class="square"></view><text>教学花絮</text></view></view>
+  </view>
+
+  <view class="section"><view class="section-head"><text class="section-title">在售课程</text><text class="section-link" bindtap="goCourse">查看全部</text></view>
+    <view class="card course-preview" wx:for="{{courses}}" wx:key="id" bindtap="goCourse"><view class="course-image {{item.color}}"></view><view class="course-info"><text class="course-name">{{item.name}}</text><text class="muted">{{item.age}} · {{item.lessons}}次课 · {{item.schedule}}</text><text class="price">¥{{item.price}}</text></view><text class="go-arrow">›</text></view>
+  </view>
+  <view class="section"><button class="profile-link" bindtap="goProfile">我的服务与订单 ›</button></view>
+</view>

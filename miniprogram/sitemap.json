@@ -1,0 +1,1 @@
+{ "desc": "画室课程与商城", "rules": [{ "action": "allow", "page": "*" }] }
