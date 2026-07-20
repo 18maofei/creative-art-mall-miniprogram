@@ -46,6 +46,24 @@ npm.cmd run dev
 
 健康检查：`http://127.0.0.1:3000/health`。
 
+## 本地 MySQL 与迁移
+
+先在项目根目录启动 MySQL 8：
+
+```powershell
+docker compose up -d mysql
+```
+
+复制 `backend/.env.example` 为 `backend/.env` 后，执行迁移：
+
+```powershell
+cd E:\小程序\创意商城小程序\backend
+npm.cmd install
+npm.cmd run db:migrate
+```
+
+本地 MySQL 地址为 `127.0.0.1:3307`，数据库为 `art_studio`。迁移文件位于 `backend/migrations/`；所有环境都必须通过该迁移创建或升级表结构，不能手工改生产表。
+
 当前已提供的接口：
 
 - `GET /health`：服务健康检查。

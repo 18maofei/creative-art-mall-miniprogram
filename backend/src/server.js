@@ -1,4 +1,5 @@
 import Fastify from 'fastify'
+import { checkDatabase } from './db.js'
 
 const app = Fastify({ logger: true })
 const state = {
@@ -11,7 +12,15 @@ const state = {
   ledger: []
 }
 
-app.get('/health', async () => ({ ok: true, service: 'art-studio-api' }))
+app.get('/health', async () => {
+  if (process.env.DATABASE_ENABLED !== 'true') return { ok: true, service: 'art-studio-api', database: 'disabled' }
+  try {
+    await checkDatabase()
+    return { ok: true, service: 'art-studio-api', database: 'connected' }
+  } catch (error) {
+    return { ok: false, service: 'art-studio-api', database: 'unavailable', message: error.message }
+  }
+})
 app.get('/api/bootstrap', async () => ({ data: state }))
 
 app.post('/api/attendance/confirm', async (request, reply) => {
