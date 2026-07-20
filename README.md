@@ -60,9 +60,12 @@ docker compose up -d mysql
 cd E:\小程序\创意商城小程序\backend
 npm.cmd install
 npm.cmd run db:migrate
+npm.cmd run db:seed
 ```
 
 本地 MySQL 地址为 `127.0.0.1:3307`，数据库为 `art_studio`。迁移文件位于 `backend/migrations/`；所有环境都必须通过该迁移创建或升级表结构，不能手工改生产表。
+
+`db:seed` 只用于本地开发，写入演示家长、教师、孩子、课程、班级、课时和商品数据。AI 点评表仅为未来预留，当前版本不接入 AI 服务。
 
 当前已提供的接口：
 
