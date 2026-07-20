@@ -16,6 +16,21 @@ async function lessonBalance(db, childId) {
   return Number(rows[0]?.balance_after || 0)
 }
 
+async function requireAdmin(db, adminUserId) {
+  if (!adminUserId) throw new Error('adminUserId is required')
+  const [rows] = await db.query(
+    'SELECT 1 FROM user_roles WHERE user_id = ? AND role = ? LIMIT 1',
+    [adminUserId, 'ADMIN']
+  )
+  if (!rows.length) throw new Error('admin access denied')
+}
+
+function positiveInteger(value, field) {
+  const number = Number(value)
+  if (!Number.isInteger(number) || number <= 0) throw new Error(`${field} must be a positive integer`)
+  return number
+}
+
 app.get('/health', async () => {
   if (process.env.DATABASE_ENABLED !== 'true') return { ok: true, service: 'art-studio-api', database: 'disabled' }
   try {
@@ -35,8 +50,9 @@ app.get('/api/dev/context', async () => {
   const db = getDb()
   const [[parent]] = await db.query('SELECT id FROM users WHERE wechat_openid = ?', ['demo-parent-001'])
   const [[teacher]] = await db.query('SELECT id FROM users WHERE wechat_openid = ?', ['demo-teacher-001'])
+  const [[admin]] = await db.query('SELECT id FROM users WHERE wechat_openid = ?', ['demo-admin-001'])
   const [[child]] = await db.query('SELECT c.id FROM children c JOIN parent_children pc ON pc.child_id = c.id WHERE pc.parent_user_id = ? ORDER BY c.id LIMIT 1', [parent.id])
-  return { data: { parentUserId: parent.id, teacherUserId: teacher.id, childId: child.id } }
+  return { data: { parentUserId: parent.id, teacherUserId: teacher.id, adminUserId: admin.id, childId: child.id } }
 })
 
 app.get('/api/products', async () => {
@@ -157,6 +173,191 @@ app.post('/api/orders', async (request, reply) => {
     }
     await connection.commit()
     return { data: { id: order.insertId, orderNo, totalAmount: total, status: 'PENDING_PAYMENT' } }
+  } catch (error) {
+    await connection.rollback()
+    return badRequest(reply, error.message)
+  } finally {
+    connection.release()
+  }
+})
+
+app.get('/api/admin/overview', async (request, reply) => {
+  const { adminUserId } = request.query || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    const [[children]] = await db.query('SELECT COUNT(*) AS total FROM children')
+    const [[activeClasses]] = await db.query("SELECT COUNT(*) AS total FROM classes WHERE status = 'ACTIVE'")
+    const [[scheduledSessions]] = await db.query("SELECT COUNT(*) AS total FROM class_sessions WHERE status = 'SCHEDULED'")
+    const [[pendingOrders]] = await db.query("SELECT COUNT(*) AS total FROM orders WHERE status = 'PENDING_PAYMENT'")
+    return { data: { children: Number(children.total), activeClasses: Number(activeClasses.total), scheduledSessions: Number(scheduledSessions.total), pendingOrders: Number(pendingOrders.total) } }
+  } catch (error) {
+    return badRequest(reply, error.message)
+  }
+})
+
+app.get('/api/admin/children', async (request, reply) => {
+  const { adminUserId } = request.query || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    const [rows] = await db.query(`
+      SELECT c.id, c.name, c.birthday, c.gender, c.remark,
+        COALESCE((SELECT ll.balance_after FROM lesson_ledger ll WHERE ll.child_id = c.id ORDER BY ll.id DESC LIMIT 1), 0) AS remaining_lessons,
+        COUNT(DISTINCT e.id) AS active_enrollments
+      FROM children c
+      LEFT JOIN enrollments e ON e.child_id = c.id AND e.status = 'ACTIVE'
+      GROUP BY c.id
+      ORDER BY c.id DESC`)
+    return { data: rows }
+  } catch (error) {
+    return badRequest(reply, error.message)
+  }
+})
+
+app.post('/api/admin/children', async (request, reply) => {
+  const { adminUserId, name, birthday, gender = 'UNKNOWN', remark } = request.body || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    if (!String(name || '').trim()) throw new Error('name is required')
+    if (!['UNKNOWN', 'MALE', 'FEMALE'].includes(gender)) throw new Error('invalid gender')
+    const [result] = await db.query('INSERT INTO children (name, birthday, gender, remark) VALUES (?, ?, ?, ?)', [name.trim(), birthday || null, gender, remark || null])
+    return reply.code(201).send({ data: { id: result.insertId } })
+  } catch (error) {
+    return badRequest(reply, error.message)
+  }
+})
+
+app.get('/api/admin/classes', async (request, reply) => {
+  const { adminUserId } = request.query || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    const [rows] = await db.query(`
+      SELECT c.id, c.name, c.campus, c.room, c.capacity, c.status, co.id AS course_id, co.name AS course_name,
+        u.id AS teacher_user_id, u.display_name AS teacher_name, COUNT(e.id) AS enrolled_count
+      FROM classes c
+      JOIN courses co ON co.id = c.course_id
+      LEFT JOIN users u ON u.id = c.teacher_user_id
+      LEFT JOIN enrollments e ON e.class_id = c.id AND e.status = 'ACTIVE'
+      GROUP BY c.id
+      ORDER BY c.id DESC`)
+    return { data: rows }
+  } catch (error) {
+    return badRequest(reply, error.message)
+  }
+})
+
+app.post('/api/admin/classes', async (request, reply) => {
+  const { adminUserId, courseId, teacherUserId, name, campus, room, capacity = 20 } = request.body || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    const normalizedCourseId = positiveInteger(courseId, 'courseId')
+    const normalizedCapacity = positiveInteger(capacity, 'capacity')
+    if (!String(name || '').trim()) throw new Error('name is required')
+    const [courses] = await db.query('SELECT id FROM courses WHERE id = ?', [normalizedCourseId])
+    if (!courses.length) throw new Error('course not found')
+    if (teacherUserId) {
+      const [teachers] = await db.query('SELECT 1 FROM user_roles WHERE user_id = ? AND role = ?', [teacherUserId, 'TEACHER'])
+      if (!teachers.length) throw new Error('teacher not found')
+    }
+    const [result] = await db.query('INSERT INTO classes (course_id, teacher_user_id, name, campus, room, capacity) VALUES (?, ?, ?, ?, ?, ?)', [normalizedCourseId, teacherUserId || null, name.trim(), campus || null, room || null, normalizedCapacity])
+    return reply.code(201).send({ data: { id: result.insertId } })
+  } catch (error) {
+    return badRequest(reply, error.message)
+  }
+})
+
+app.post('/api/admin/classes/:classId/sessions', async (request, reply) => {
+  const { classId } = request.params
+  const { adminUserId, sequenceNo, startsAt, endsAt, campus, room } = request.body || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    const normalizedClassId = positiveInteger(classId, 'classId')
+    const normalizedSequenceNo = positiveInteger(sequenceNo, 'sequenceNo')
+    if (!startsAt || !endsAt || new Date(endsAt) <= new Date(startsAt)) throw new Error('startsAt and endsAt must form a valid time range')
+    const [classes] = await db.query('SELECT id FROM classes WHERE id = ? AND status = ?', [normalizedClassId, 'ACTIVE'])
+    if (!classes.length) throw new Error('active class not found')
+    const [result] = await db.query('INSERT INTO class_sessions (class_id, sequence_no, starts_at, ends_at, campus, room) VALUES (?, ?, ?, ?, ?, ?)', [normalizedClassId, normalizedSequenceNo, startsAt, endsAt, campus || null, room || null])
+    return reply.code(201).send({ data: { id: result.insertId } })
+  } catch (error) {
+    return badRequest(reply, error.message)
+  }
+})
+
+app.post('/api/admin/enrollments', async (request, reply) => {
+  const { adminUserId, childId, classId } = request.body || {}
+  const db = getDb()
+  const connection = await db.getConnection()
+  try {
+    await requireAdmin(connection, adminUserId)
+    const normalizedChildId = positiveInteger(childId, 'childId')
+    const normalizedClassId = positiveInteger(classId, 'classId')
+    await connection.beginTransaction()
+    const [classes] = await connection.query(`
+      SELECT c.capacity, COUNT(e.id) AS enrolled_count
+      FROM classes c LEFT JOIN enrollments e ON e.class_id = c.id AND e.status = 'ACTIVE'
+      WHERE c.id = ? AND c.status = 'ACTIVE' GROUP BY c.id FOR UPDATE`, [normalizedClassId])
+    if (!classes.length) throw new Error('active class not found')
+    if (Number(classes[0].enrolled_count) >= Number(classes[0].capacity)) throw new Error('class is full')
+    const [children] = await connection.query('SELECT id FROM children WHERE id = ? FOR UPDATE', [normalizedChildId])
+    if (!children.length) throw new Error('child not found')
+    const [result] = await connection.query(`INSERT INTO enrollments (child_id, class_id, status) VALUES (?, ?, 'ACTIVE')
+      ON DUPLICATE KEY UPDATE status = 'ACTIVE', updated_at = CURRENT_TIMESTAMP`, [normalizedChildId, normalizedClassId])
+    await connection.commit()
+    return reply.code(201).send({ data: { id: result.insertId || null, childId: normalizedChildId, classId: normalizedClassId, status: 'ACTIVE' } })
+  } catch (error) {
+    await connection.rollback()
+    return badRequest(reply, error.message)
+  } finally {
+    connection.release()
+  }
+})
+
+app.get('/api/admin/children/:childId/lesson-ledger', async (request, reply) => {
+  const { childId } = request.params
+  const { adminUserId } = request.query || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    const [rows] = await db.query(`
+      SELECT id, type, quantity, balance_after, reason, session_id, enrollment_id, operator_user_id, created_at
+      FROM lesson_ledger WHERE child_id = ? ORDER BY id DESC`, [positiveInteger(childId, 'childId')])
+    return { data: rows }
+  } catch (error) {
+    return badRequest(reply, error.message)
+  }
+})
+
+app.post('/api/admin/children/:childId/lesson-adjustments', async (request, reply) => {
+  const { childId } = request.params
+  const { adminUserId, type = 'ADJUST', quantity, reason, idempotencyKey } = request.body || {}
+  const db = getDb()
+  const connection = await db.getConnection()
+  try {
+    await requireAdmin(connection, adminUserId)
+    const normalizedChildId = positiveInteger(childId, 'childId')
+    const normalizedQuantity = Number(quantity)
+    if (!Number.isFinite(normalizedQuantity) || normalizedQuantity === 0) throw new Error('quantity must be non-zero')
+    if (!['PURCHASE', 'GIFT', 'REFUND', 'ADJUST', 'FREEZE', 'UNFREEZE'].includes(type)) throw new Error('invalid adjustment type')
+    if (!String(reason || '').trim() || !String(idempotencyKey || '').trim()) throw new Error('reason and idempotencyKey are required')
+    await connection.beginTransaction()
+    const [children] = await connection.query('SELECT id FROM children WHERE id = ? FOR UPDATE', [normalizedChildId])
+    if (!children.length) throw new Error('child not found')
+    const [existing] = await connection.query('SELECT id, balance_after FROM lesson_ledger WHERE idempotency_key = ? FOR UPDATE', [idempotencyKey])
+    if (existing.length) {
+      await connection.commit()
+      return { data: { id: existing[0].id, balanceAfter: Number(existing[0].balance_after), duplicate: true } }
+    }
+    const [latest] = await connection.query('SELECT balance_after FROM lesson_ledger WHERE child_id = ? ORDER BY id DESC LIMIT 1 FOR UPDATE', [normalizedChildId])
+    const nextBalance = Number(latest[0]?.balance_after || 0) + normalizedQuantity
+    if (nextBalance < 0) throw new Error('lesson balance cannot be negative')
+    const [result] = await connection.query('INSERT INTO lesson_ledger (child_id, type, quantity, balance_after, reason, idempotency_key, operator_user_id) VALUES (?, ?, ?, ?, ?, ?, ?)', [normalizedChildId, type, normalizedQuantity, nextBalance, reason.trim(), idempotencyKey.trim(), adminUserId])
+    await connection.commit()
+    return reply.code(201).send({ data: { id: result.insertId, balanceAfter: nextBalance, duplicate: false } })
   } catch (error) {
     await connection.rollback()
     return badRequest(reply, error.message)

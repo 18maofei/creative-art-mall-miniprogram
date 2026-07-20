@@ -39,7 +39,7 @@ function api(path, method = 'GET', data) {
 }
 
 function devContext() {
-  if (app.globalData.demoMode) return Promise.resolve({ parentUserId: 1, teacherUserId: 2, childId: 1 })
+  if (app.globalData.demoMode) return Promise.resolve({ parentUserId: 1, teacherUserId: 2, adminUserId: 3, childId: 1 })
   return api('/api/dev/context')
 }
 
@@ -60,4 +60,17 @@ function createOrder(buyerUserId, items) {
   return api('/api/orders', 'POST', { buyerUserId, items })
 }
 
-module.exports = { mockState, request, devContext, courses, products, parentDashboard, teacherSessions, attendance, confirmAttendance, createOrder }
+function adminOverview(adminUserId) {
+  if (app.globalData.demoMode) return Promise.resolve({ children: 3, activeClasses: 1, scheduledSessions: 2, pendingOrders: 0 })
+  return api(`/api/admin/overview?adminUserId=${adminUserId}`)
+}
+function adminChildren(adminUserId) {
+  if (app.globalData.demoMode) return Promise.resolve(mockState.students.map((student, index) => ({ id: index + 1, name: student.name, remaining_lessons: student.remaining, active_enrollments: 1 })))
+  return api(`/api/admin/children?adminUserId=${adminUserId}`)
+}
+function adminClasses(adminUserId) {
+  if (app.globalData.demoMode) return Promise.resolve([{ id: 1, name: '创意美术启蒙班 · 周六班', course_name: '创意美术启蒙班', teacher_name: '王老师', enrolled_count: 3, capacity: 12, campus: 'A校区', room: '201' }])
+  return api(`/api/admin/classes?adminUserId=${adminUserId}`)
+}
+
+module.exports = { mockState, request, devContext, courses, products, parentDashboard, teacherSessions, attendance, confirmAttendance, createOrder, adminOverview, adminChildren, adminClasses }

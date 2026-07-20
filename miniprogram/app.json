@@ -5,6 +5,7 @@
     "pages/shop/index",
     "pages/parent/index",
     "pages/teacher/index",
+    "pages/admin/index",
     "pages/profile/index"
   ],
   "window": {

@@ -1,0 +1,32 @@
+<view class="page">
+  <view class="admin-head">
+    <text class="eyebrow">STUDIO DESK</text>
+    <text class="title">画室管理</text>
+    <text class="copy">教务、课时与订单运营概览</text>
+  </view>
+  <view class="section stat-grid">
+    <view class="stat-card"><text class="stat-value">{{overview.children}}</text><text class="muted">在册学员</text></view>
+    <view class="stat-card"><text class="stat-value">{{overview.activeClasses}}</text><text class="muted">进行班级</text></view>
+    <view class="stat-card"><text class="stat-value">{{overview.scheduledSessions}}</text><text class="muted">待上课次</text></view>
+    <view class="stat-card"><text class="stat-value">{{overview.pendingOrders}}</text><text class="muted">待付款订单</text></view>
+  </view>
+  <view class="section">
+    <view class="section-head"><text class="section-title">学员课时</text><text class="muted">{{children.length}} 位</text></view>
+    <view class="card list-card">
+      <view class="student-row" wx:for="{{children}}" wx:key="id" data-student="{{item}}" bindtap="openStudent">
+        <view class="initial">{{item.initial}}</view>
+        <view class="student-main"><text class="student-name">{{item.name}}</text><text class="muted">{{item.active_enrollments}} 个在读班级</text></view>
+        <view class="lesson-count"><text>{{item.remaining_lessons}}</text><text>次</text></view>
+      </view>
+      <view wx:if="{{!children.length && !loading}}" class="empty">暂无学员数据</view>
+    </view>
+  </view>
+  <view class="section">
+    <view class="section-head"><text class="section-title">班级运行</text><text class="muted">实时容量</text></view>
+    <view class="class-item" wx:for="{{classes}}" wx:key="id">
+      <view><text class="class-name">{{item.name}}</text><text class="muted">{{item.course_name}} · {{item.teacherLabel}}</text><text class="muted">{{item.campusLabel}}</text></view>
+      <view class="capacity"><text>{{item.enrolled_count}}/{{item.capacity}}</text><text>已报名</text></view>
+    </view>
+    <view wx:if="{{!classes.length && !loading}}" class="empty">暂无班级数据</view>
+  </view>
+</view>
