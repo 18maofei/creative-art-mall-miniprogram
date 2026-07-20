@@ -34,4 +34,30 @@ function request(path, method = 'GET', data) {
   })
 }
 
-module.exports = { mockState, request }
+function api(path, method = 'GET', data) {
+  return request(path, method, data)
+}
+
+function devContext() {
+  if (app.globalData.demoMode) return Promise.resolve({ parentUserId: 1, teacherUserId: 2, childId: 1 })
+  return api('/api/dev/context')
+}
+
+function courses() { return app.globalData.demoMode ? Promise.resolve(mockState.courses) : api('/api/courses') }
+function products() { return app.globalData.demoMode ? Promise.resolve(mockState.products) : api('/api/products') }
+function parentDashboard(context) {
+  if (app.globalData.demoMode) return Promise.resolve({ child: mockState.child, sessions: mockState.lessons })
+  return api(`/api/parent/dashboard?parentUserId=${context.parentUserId}&childId=${context.childId}`)
+}
+function teacherSessions(context) { return app.globalData.demoMode ? Promise.resolve([{ id: 1 }]) : api(`/api/teacher/sessions?teacherUserId=${context.teacherUserId}`) }
+function attendance(sessionId) { return app.globalData.demoMode ? Promise.resolve(mockState.students) : api(`/api/sessions/${sessionId}/attendance`) }
+function confirmAttendance(sessionId, teacherUserId, records) {
+  if (app.globalData.demoMode) return Promise.resolve({ records })
+  return api(`/api/sessions/${sessionId}/attendance/confirm`, 'POST', { teacherUserId, records })
+}
+function createOrder(buyerUserId, items) {
+  if (app.globalData.demoMode) return Promise.resolve({ orderNo: `DEMO${Date.now()}`, status: 'PENDING_PAYMENT' })
+  return api('/api/orders', 'POST', { buyerUserId, items })
+}
+
+module.exports = { mockState, request, devContext, courses, products, parentDashboard, teacherSessions, attendance, confirmAttendance, createOrder }

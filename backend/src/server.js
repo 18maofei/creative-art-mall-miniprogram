@@ -31,6 +31,14 @@ app.get('/api/courses', async () => {
   return { data: rows }
 })
 
+app.get('/api/dev/context', async () => {
+  const db = getDb()
+  const [[parent]] = await db.query('SELECT id FROM users WHERE wechat_openid = ?', ['demo-parent-001'])
+  const [[teacher]] = await db.query('SELECT id FROM users WHERE wechat_openid = ?', ['demo-teacher-001'])
+  const [[child]] = await db.query('SELECT c.id FROM children c JOIN parent_children pc ON pc.child_id = c.id WHERE pc.parent_user_id = ? ORDER BY c.id LIMIT 1', [parent.id])
+  return { data: { parentUserId: parent.id, teacherUserId: teacher.id, childId: child.id } }
+})
+
 app.get('/api/products', async () => {
   const [rows] = await getDb().query(`
     SELECT p.id AS product_id, p.name, p.description, p.cover_url, s.id AS sku_id, s.name AS sku_name, s.sku_code, s.price, s.stock_quantity
