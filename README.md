@@ -65,6 +65,8 @@ npm.cmd run db:seed
 
 本地 MySQL 地址为 `127.0.0.1:3307`，数据库为 `art_studio`。迁移文件位于 `backend/migrations/`；所有环境都必须通过该迁移创建或升级表结构，不能手工改生产表。
 
+浏览器查看数据表请访问 `http://127.0.0.1:8080`（Adminer），不要在浏览器打开 `3307`。登录时系统选 MySQL，服务器填 `mysql`，用户名 `art_studio_app`，密码 `change-me-local-only`，数据库 `art_studio`。
+
 `db:seed` 只用于本地开发，写入演示家长、教师、孩子、课程、班级、课时和商品数据。AI 点评表仅为未来预留，当前版本不接入 AI 服务。
 
 当前已提供的接口：
