@@ -7,6 +7,7 @@ Page({
       { name: '管理操作', url: '/pages/admin-ops/index' },
       { name: '订单处理', url: '/pages/admin-orders/index' },
       { name: '课程排课', url: '/pages/admin-schedule/index' }
+      ,{ name: '监护人绑定', url: '/pages/admin-guardians/index' }
     ]
   },
   openService(e) {

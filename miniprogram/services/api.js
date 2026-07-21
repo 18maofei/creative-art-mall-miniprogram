@@ -104,6 +104,14 @@ function createSession(adminUserId, classId, data) {
   if (app.globalData.demoMode) return Promise.resolve({ id: Date.now() })
   return api(`/api/admin/classes/${classId}/sessions`, 'POST', { adminUserId, ...data })
 }
+function createParent(adminUserId, data) {
+  if (app.globalData.demoMode) return Promise.resolve({ id: Date.now() })
+  return api('/api/admin/parents', 'POST', { adminUserId, ...data })
+}
+function bindGuardian(adminUserId, childId, parentUserId, relationship) {
+  if (app.globalData.demoMode) return Promise.resolve({ childId, parentUserId })
+  return api(`/api/admin/children/${childId}/guardians`, 'POST', { adminUserId, parentUserId, relationship })
+}
 
 function adminOverview(adminUserId) {
   if (app.globalData.demoMode) return Promise.resolve({ children: 3, activeClasses: 1, scheduledSessions: 2, pendingOrders: 0 })
@@ -118,4 +126,4 @@ function adminClasses(adminUserId) {
   return api(`/api/admin/classes?adminUserId=${adminUserId}`)
 }
 
-module.exports = { mockState, request, devContext, courses, products, parentDashboard, teacherSessions, attendance, confirmAttendance, createOrder, addresses, createAddress, userOrders, createChild, adjustLessons, adminOrders, updateOrderStatus, adminCourses, createCourse, createClass, createSession, adminOverview, adminChildren, adminClasses }
+module.exports = { mockState, request, devContext, courses, products, parentDashboard, teacherSessions, attendance, confirmAttendance, createOrder, addresses, createAddress, userOrders, createChild, adjustLessons, adminOrders, updateOrderStatus, adminCourses, createCourse, createClass, createSession, createParent, bindGuardian, adminOverview, adminChildren, adminClasses }

@@ -11,6 +11,7 @@
     "pages/admin-ops/index",
     "pages/admin-orders/index",
     "pages/admin-schedule/index",
+    "pages/admin-guardians/index",
     "pages/profile/index"
   ],
   "window": {
