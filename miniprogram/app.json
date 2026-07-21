@@ -10,6 +10,7 @@
     "pages/admin/index",
     "pages/admin-ops/index",
     "pages/admin-orders/index",
+    "pages/admin-schedule/index",
     "pages/profile/index"
   ],
   "window": {

@@ -88,6 +88,22 @@ function updateOrderStatus(adminUserId, orderId, status, trackingNo) {
   if (app.globalData.demoMode) return Promise.resolve({ id: orderId, status })
   return api(`/api/admin/orders/${orderId}/status`, 'PATCH', { adminUserId, status, trackingNo })
 }
+function adminCourses(adminUserId) {
+  if (app.globalData.demoMode) return Promise.resolve(mockState.courses.map((course, index) => ({ id: index + 1, name: course.name, age_range: course.age, default_lesson_count: course.lessons, price: course.price, status: 'ON_SALE' })))
+  return api(`/api/admin/courses?adminUserId=${adminUserId}`)
+}
+function createCourse(adminUserId, data) {
+  if (app.globalData.demoMode) return Promise.resolve({ id: Date.now() })
+  return api('/api/admin/courses', 'POST', { adminUserId, ...data })
+}
+function createClass(adminUserId, data) {
+  if (app.globalData.demoMode) return Promise.resolve({ id: Date.now() })
+  return api('/api/admin/classes', 'POST', { adminUserId, ...data })
+}
+function createSession(adminUserId, classId, data) {
+  if (app.globalData.demoMode) return Promise.resolve({ id: Date.now() })
+  return api(`/api/admin/classes/${classId}/sessions`, 'POST', { adminUserId, ...data })
+}
 
 function adminOverview(adminUserId) {
   if (app.globalData.demoMode) return Promise.resolve({ children: 3, activeClasses: 1, scheduledSessions: 2, pendingOrders: 0 })
@@ -102,4 +118,4 @@ function adminClasses(adminUserId) {
   return api(`/api/admin/classes?adminUserId=${adminUserId}`)
 }
 
-module.exports = { mockState, request, devContext, courses, products, parentDashboard, teacherSessions, attendance, confirmAttendance, createOrder, addresses, createAddress, userOrders, createChild, adjustLessons, adminOrders, updateOrderStatus, adminOverview, adminChildren, adminClasses }
+module.exports = { mockState, request, devContext, courses, products, parentDashboard, teacherSessions, attendance, confirmAttendance, createOrder, addresses, createAddress, userOrders, createChild, adjustLessons, adminOrders, updateOrderStatus, adminCourses, createCourse, createClass, createSession, adminOverview, adminChildren, adminClasses }
