@@ -3,9 +3,13 @@
     "pages/home/index",
     "pages/course/index",
     "pages/shop/index",
+    "pages/orders/index",
+    "pages/address/index",
     "pages/parent/index",
     "pages/teacher/index",
     "pages/admin/index",
+    "pages/admin-ops/index",
+    "pages/admin-orders/index",
     "pages/profile/index"
   ],
   "window": {

@@ -55,9 +55,38 @@ function confirmAttendance(sessionId, teacherUserId, records) {
   if (app.globalData.demoMode) return Promise.resolve({ records })
   return api(`/api/sessions/${sessionId}/attendance/confirm`, 'POST', { teacherUserId, records })
 }
-function createOrder(buyerUserId, items) {
+function createOrder(buyerUserId, items, shippingAddressId) {
   if (app.globalData.demoMode) return Promise.resolve({ orderNo: `DEMO${Date.now()}`, status: 'PENDING_PAYMENT' })
-  return api('/api/orders', 'POST', { buyerUserId, items })
+  return api('/api/orders', 'POST', { buyerUserId, items, shippingAddressId })
+}
+
+function addresses(userId) {
+  if (app.globalData.demoMode) return Promise.resolve([{ id: 1, recipient_name: 'Demo Parent', mobile: '13800000000', province: 'Guangdong', city: 'Shenzhen', district: 'Nanshan', detail: 'Creative Road 1', is_default: true }])
+  return api(`/api/addresses?userId=${userId}`)
+}
+function createAddress(data) {
+  if (app.globalData.demoMode) return Promise.resolve({ id: Date.now(), isDefault: true })
+  return api('/api/addresses', 'POST', data)
+}
+function userOrders(buyerUserId) {
+  if (app.globalData.demoMode) return Promise.resolve([])
+  return api(`/api/orders?buyerUserId=${buyerUserId}`)
+}
+function createChild(adminUserId, data) {
+  if (app.globalData.demoMode) return Promise.resolve({ id: Date.now() })
+  return api('/api/admin/children', 'POST', { adminUserId, ...data })
+}
+function adjustLessons(adminUserId, childId, data) {
+  if (app.globalData.demoMode) return Promise.resolve({ id: Date.now(), balanceAfter: 12, duplicate: false })
+  return api(`/api/admin/children/${childId}/lesson-adjustments`, 'POST', { adminUserId, ...data })
+}
+function adminOrders(adminUserId) {
+  if (app.globalData.demoMode) return Promise.resolve([])
+  return api(`/api/admin/orders?adminUserId=${adminUserId}`)
+}
+function updateOrderStatus(adminUserId, orderId, status, trackingNo) {
+  if (app.globalData.demoMode) return Promise.resolve({ id: orderId, status })
+  return api(`/api/admin/orders/${orderId}/status`, 'PATCH', { adminUserId, status, trackingNo })
 }
 
 function adminOverview(adminUserId) {
@@ -73,4 +102,4 @@ function adminClasses(adminUserId) {
   return api(`/api/admin/classes?adminUserId=${adminUserId}`)
 }
 
-module.exports = { mockState, request, devContext, courses, products, parentDashboard, teacherSessions, attendance, confirmAttendance, createOrder, adminOverview, adminChildren, adminClasses }
+module.exports = { mockState, request, devContext, courses, products, parentDashboard, teacherSessions, attendance, confirmAttendance, createOrder, addresses, createAddress, userOrders, createChild, adjustLessons, adminOrders, updateOrderStatus, adminOverview, adminChildren, adminClasses }
