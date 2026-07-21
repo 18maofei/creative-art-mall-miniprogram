@@ -9,6 +9,7 @@ Page({
       { name: '课程排课', url: '/pages/admin-schedule/index' }
       ,{ name: '监护人绑定', url: '/pages/admin-guardians/index' }
       ,{ name: '商品库存', url: '/pages/admin-products/index' }
+      ,{ name: '学生报名', url: '/pages/admin-enrollments/index' }
     ]
   },
   openService(e) {

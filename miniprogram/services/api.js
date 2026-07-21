@@ -124,6 +124,10 @@ function adjustStock(adminUserId, skuId, data) {
   if (app.globalData.demoMode) return Promise.resolve({ id: skuId, stockQuantity: 100 })
   return api(`/api/admin/skus/${skuId}/stock`, 'PATCH', { adminUserId, ...data })
 }
+function createEnrollment(adminUserId, childId, classId) {
+  if (app.globalData.demoMode) return Promise.resolve({ childId, classId, status: 'ACTIVE' })
+  return api('/api/admin/enrollments', 'POST', { adminUserId, childId, classId })
+}
 
 function adminOverview(adminUserId) {
   if (app.globalData.demoMode) return Promise.resolve({ children: 3, activeClasses: 1, scheduledSessions: 2, pendingOrders: 0 })
@@ -138,4 +142,4 @@ function adminClasses(adminUserId) {
   return api(`/api/admin/classes?adminUserId=${adminUserId}`)
 }
 
-module.exports = { mockState, request, devContext, courses, products, parentDashboard, teacherSessions, attendance, confirmAttendance, createOrder, addresses, createAddress, userOrders, createChild, adjustLessons, adminOrders, updateOrderStatus, adminCourses, createCourse, createClass, createSession, createParent, bindGuardian, adminProducts, createProduct, adjustStock, adminOverview, adminChildren, adminClasses }
+module.exports = { mockState, request, devContext, courses, products, parentDashboard, teacherSessions, attendance, confirmAttendance, createOrder, addresses, createAddress, userOrders, createChild, adjustLessons, adminOrders, updateOrderStatus, adminCourses, createCourse, createClass, createSession, createParent, bindGuardian, adminProducts, createProduct, adjustStock, createEnrollment, adminOverview, adminChildren, adminClasses }

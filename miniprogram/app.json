@@ -13,6 +13,7 @@
     "pages/admin-schedule/index",
     "pages/admin-guardians/index",
     "pages/admin-products/index",
+    "pages/admin-enrollments/index",
     "pages/profile/index"
   ],
   "window": {
