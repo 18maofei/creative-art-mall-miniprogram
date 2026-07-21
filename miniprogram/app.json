@@ -2,6 +2,8 @@
   "pages": [
     "pages/home/index",
     "pages/course/index",
+    "pages/course-detail/index",
+    "pages/gallery/index",
     "pages/shop/index",
     "pages/orders/index",
     "pages/address/index",

@@ -1,0 +1,1 @@
+.gallery-card { margin-bottom:16rpx; padding:20rpx; border:1rpx solid #e3ebe7; border-radius:8rpx; background:#fff; font-size:28rpx; }.gallery-art { height:260rpx; margin-bottom:16rpx; border-radius:6rpx; background:#e7f4ee; }

@@ -1,0 +1,1 @@
+<view class="page"><view class="tabs"><text wx:for="{{tabs}}" wx:key="*this" class="tab {{selected===index?'active':''}}" data-index="{{index}}" bindtap="select">{{item}}</text></view><view class="section"><view class="gallery-card" wx:for="{{items[selected]}}" wx:key="*this"><view class="gallery-art"></view><text>{{item}}</text></view></view></view>

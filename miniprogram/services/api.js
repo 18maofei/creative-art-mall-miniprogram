@@ -1,6 +1,8 @@
 const app = getApp()
 
 const mockState = {
+  addresses: [],
+  orders: [],
   child: { name: '乐乐', remainingLessons: 12, validUntil: '2026/12/31' },
   lessons: [
     { date: '07/25', week: '周六', title: '创意美术启蒙班 · 第4课', time: '10:00-11:30', place: 'A校区 201', status: '待上课' },
@@ -56,20 +58,20 @@ function confirmAttendance(sessionId, teacherUserId, records) {
   return api(`/api/sessions/${sessionId}/attendance/confirm`, 'POST', { teacherUserId, records })
 }
 function createOrder(buyerUserId, items, shippingAddressId) {
-  if (app.globalData.demoMode) return Promise.resolve({ orderNo: `DEMO${Date.now()}`, status: 'PENDING_PAYMENT' })
+  if (app.globalData.demoMode) { const orderNo = `DEMO${Date.now()}`; mockState.orders.unshift({ id: Date.now(), order_no: orderNo, total_amount: items.reduce((sum, item) => sum + item.quantity, 0), status: 'PENDING_PAYMENT', shipping_address_snapshot: mockState.addresses[0]?.detail || '' }); return Promise.resolve({ orderNo, status: 'PENDING_PAYMENT' }) }
   return api('/api/orders', 'POST', { buyerUserId, items, shippingAddressId })
 }
 
 function addresses(userId) {
-  if (app.globalData.demoMode) return Promise.resolve([{ id: 1, recipient_name: 'Demo Parent', mobile: '13800000000', province: 'Guangdong', city: 'Shenzhen', district: 'Nanshan', detail: 'Creative Road 1', is_default: true }])
+  if (app.globalData.demoMode) return Promise.resolve(mockState.addresses)
   return api(`/api/addresses?userId=${userId}`)
 }
 function createAddress(data) {
-  if (app.globalData.demoMode) return Promise.resolve({ id: Date.now(), isDefault: true })
+  if (app.globalData.demoMode) { const id = Date.now(); mockState.addresses = [{ id, recipient_name: data.recipientName, mobile: data.mobile, province: data.province, city: data.city, district: data.district, detail: data.detail, is_default: true }]; return Promise.resolve({ id, isDefault: true }) }
   return api('/api/addresses', 'POST', data)
 }
 function userOrders(buyerUserId) {
-  if (app.globalData.demoMode) return Promise.resolve([])
+  if (app.globalData.demoMode) return Promise.resolve(mockState.orders)
   return api(`/api/orders?buyerUserId=${buyerUserId}`)
 }
 function createChild(adminUserId, data) {

@@ -1,0 +1,1 @@
+.detail { display:flex; flex-direction:column; gap:20rpx; padding:28rpx; }.course-title { font-size:36rpx; font-weight:700; }.course-desc { color:#52605a; line-height:1.7; }.primary-btn { width:100%; }
