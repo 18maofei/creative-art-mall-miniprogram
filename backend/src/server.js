@@ -119,8 +119,21 @@ app.post('/api/sessions/:sessionId/attendance/confirm', async (request, reply) =
       const state = record.status === 'LEAVE' ? 'LEAVE' : record.status === 'ABSENT' ? 'ABSENT' : 'PRESENT'
       const childId = Number(record.childId)
       if (!childId) throw new Error('record.childId is required')
+      const [[previous]] = await connection.query('SELECT status FROM attendance WHERE session_id = ? AND child_id = ? FOR UPDATE', [sessionId, childId])
       await connection.query(`INSERT INTO attendance (session_id, child_id, status, confirmed_by_user_id, confirmed_at)
         VALUES (?, ?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE status = VALUES(status), confirmed_by_user_id = VALUES(confirmed_by_user_id), confirmed_at = NOW()`, [sessionId, childId, state, teacherUserId])
+      if (previous?.status === 'PRESENT' && state !== 'PRESENT') {
+        // Correcting a confirmed presence must refund the original deduction exactly once.
+        const reversalKey = `attendance-reversal:${sessionId}:${childId}`
+        const [reversed] = await connection.query('SELECT id FROM lesson_ledger WHERE idempotency_key = ?', [reversalKey])
+        if (!reversed.length) {
+          const [latest] = await connection.query('SELECT balance_after FROM lesson_ledger WHERE child_id = ? ORDER BY id DESC LIMIT 1 FOR UPDATE', [childId])
+          const balance = Number(latest[0]?.balance_after || 0)
+          await connection.query('INSERT INTO lesson_ledger (child_id, session_id, type, quantity, balance_after, reason, idempotency_key, operator_user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [childId, sessionId, 'REFUND', 1, balance + 1, 'Attendance correction refund', reversalKey, teacherUserId])
+          result.push({ childId, refunded: 1, balanceAfter: balance + 1 })
+        }
+      }
       if (state === 'PRESENT') {
         const key = `attendance:${sessionId}:${childId}`
         const [existing] = await connection.query('SELECT id FROM lesson_ledger WHERE idempotency_key = ?', [key])
