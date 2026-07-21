@@ -8,6 +8,7 @@ Page({
       { name: '订单处理', url: '/pages/admin-orders/index' },
       { name: '课程排课', url: '/pages/admin-schedule/index' }
       ,{ name: '监护人绑定', url: '/pages/admin-guardians/index' }
+      ,{ name: '商品库存', url: '/pages/admin-products/index' }
     ]
   },
   openService(e) {
