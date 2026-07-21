@@ -147,12 +147,21 @@ app.post('/api/sessions/:sessionId/attendance/confirm', async (request, reply) =
 })
 
 app.post('/api/orders', async (request, reply) => {
-  const { buyerUserId, items } = request.body || {}
+  const { buyerUserId, items, shippingAddressId } = request.body || {}
   if (!buyerUserId || !Array.isArray(items) || !items.length) return badRequest(reply, 'buyerUserId and items are required')
   const db = getDb()
   const connection = await db.getConnection()
   try {
     await connection.beginTransaction()
+    let address = null
+    if (shippingAddressId) {
+      const [addresses] = await connection.query(
+        'SELECT * FROM shipping_addresses WHERE id = ? AND user_id = ? FOR UPDATE',
+        [shippingAddressId, buyerUserId]
+      )
+      if (!addresses.length) throw new Error('shipping address not found')
+      address = addresses[0]
+    }
     let total = 0
     const lines = []
     for (const item of items) {
@@ -164,10 +173,16 @@ app.post('/api/orders', async (request, reply) => {
       const subtotal = Number(sku.price) * quantity
       total += subtotal
       lines.push({ sku, quantity, subtotal })
+      // Locking the SKU row above and reducing inside this transaction prevents overselling.
       await connection.query('UPDATE product_skus SET stock_quantity = stock_quantity - ? WHERE id = ?', [quantity, sku.id])
     }
     const orderNo = makeOrderNo()
-    const [order] = await connection.query('INSERT INTO orders (order_no, buyer_user_id, total_amount) VALUES (?, ?, ?)', [orderNo, buyerUserId, total])
+    const addressSnapshot = address ? `${address.province}${address.city}${address.district}${address.detail}` : null
+    const [order] = await connection.query(`INSERT INTO orders (
+      order_no, buyer_user_id, total_amount, shipping_address_id, recipient_name_snapshot, recipient_mobile_snapshot, shipping_address_snapshot
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)`, [
+      orderNo, buyerUserId, total, address?.id || null, address?.recipient_name || null, address?.mobile || null, addressSnapshot
+    ])
     for (const line of lines) {
       await connection.query('INSERT INTO order_items (order_id, product_sku_id, name_snapshot, unit_price, quantity, subtotal) VALUES (?, ?, ?, ?, ?, ?)', [order.insertId, line.sku.id, `${line.sku.product_name} · ${line.sku.name}`, line.sku.price, line.quantity, line.subtotal])
     }
@@ -181,6 +196,49 @@ app.post('/api/orders', async (request, reply) => {
   }
 })
 
+app.get('/api/addresses', async (request, reply) => {
+  const { userId } = request.query || {}
+  if (!userId) return badRequest(reply, 'userId is required')
+  const [rows] = await getDb().query(
+    'SELECT id, recipient_name, mobile, province, city, district, detail, is_default FROM shipping_addresses WHERE user_id = ? ORDER BY is_default DESC, id DESC',
+    [userId]
+  )
+  return { data: rows }
+})
+
+app.post('/api/addresses', async (request, reply) => {
+  const { userId, recipientName, mobile, province, city, district, detail, isDefault = false } = request.body || {}
+  const required = [recipientName, mobile, province, city, district, detail]
+  if (!userId || required.some(value => !String(value || '').trim())) return badRequest(reply, 'complete address fields are required')
+  const db = getDb()
+  const connection = await db.getConnection()
+  try {
+    await connection.beginTransaction()
+    const [[existing]] = await connection.query('SELECT id FROM shipping_addresses WHERE user_id = ? LIMIT 1 FOR UPDATE', [userId])
+    const defaultValue = Boolean(isDefault) || !existing
+    if (defaultValue) await connection.query('UPDATE shipping_addresses SET is_default = FALSE WHERE user_id = ?', [userId])
+    const [result] = await connection.query(`INSERT INTO shipping_addresses (
+      user_id, recipient_name, mobile, province, city, district, detail, is_default
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [userId, recipientName.trim(), mobile.trim(), province.trim(), city.trim(), district.trim(), detail.trim(), defaultValue])
+    await connection.commit()
+    return reply.code(201).send({ data: { id: result.insertId, isDefault: defaultValue } })
+  } catch (error) {
+    await connection.rollback()
+    return badRequest(reply, error.message)
+  } finally {
+    connection.release()
+  }
+})
+
+app.get('/api/orders', async (request, reply) => {
+  const { buyerUserId } = request.query || {}
+  if (!buyerUserId) return badRequest(reply, 'buyerUserId is required')
+  const [orders] = await getDb().query(`
+    SELECT id, order_no, total_amount, status, recipient_name_snapshot, shipping_address_snapshot, tracking_no, created_at
+    FROM orders WHERE buyer_user_id = ? ORDER BY id DESC`, [buyerUserId])
+  return { data: orders }
+})
+
 app.get('/api/admin/overview', async (request, reply) => {
   const { adminUserId } = request.query || {}
   const db = getDb()
@@ -191,6 +249,98 @@ app.get('/api/admin/overview', async (request, reply) => {
     const [[scheduledSessions]] = await db.query("SELECT COUNT(*) AS total FROM class_sessions WHERE status = 'SCHEDULED'")
     const [[pendingOrders]] = await db.query("SELECT COUNT(*) AS total FROM orders WHERE status = 'PENDING_PAYMENT'")
     return { data: { children: Number(children.total), activeClasses: Number(activeClasses.total), scheduledSessions: Number(scheduledSessions.total), pendingOrders: Number(pendingOrders.total) } }
+  } catch (error) {
+    return badRequest(reply, error.message)
+  }
+})
+
+app.get('/api/admin/users', async (request, reply) => {
+  const { adminUserId, role } = request.query || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    const params = []
+    let roleFilter = ''
+    if (role) {
+      if (!['ADMIN', 'TEACHER', 'PARENT'].includes(role)) throw new Error('invalid role')
+      roleFilter = 'HAVING FIND_IN_SET(?, roles)'
+      params.push(role)
+    }
+    const [rows] = await db.query(`
+      SELECT u.id, u.display_name, u.mobile, u.avatar_url, GROUP_CONCAT(ur.role ORDER BY ur.role) AS roles
+      FROM users u LEFT JOIN user_roles ur ON ur.user_id = u.id
+      GROUP BY u.id ${roleFilter} ORDER BY u.id DESC`, params)
+    return { data: rows }
+  } catch (error) {
+    return badRequest(reply, error.message)
+  }
+})
+
+app.post('/api/admin/parents', async (request, reply) => {
+  const { adminUserId, displayName, mobile } = request.body || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    if (!String(displayName || '').trim()) throw new Error('displayName is required')
+    const [result] = await db.query('INSERT INTO users (display_name, mobile) VALUES (?, ?)', [displayName.trim(), mobile?.trim() || null])
+    await db.query('INSERT INTO user_roles (user_id, role) VALUES (?, ?)', [result.insertId, 'PARENT'])
+    return reply.code(201).send({ data: { id: result.insertId } })
+  } catch (error) {
+    return badRequest(reply, error.code === 'ER_DUP_ENTRY' ? 'mobile already exists' : error.message)
+  }
+})
+
+app.get('/api/admin/courses', async (request, reply) => {
+  const { adminUserId } = request.query || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    const [rows] = await db.query(`
+      SELECT c.*, COUNT(cl.id) AS class_count
+      FROM courses c LEFT JOIN classes cl ON cl.course_id = c.id AND cl.status = 'ACTIVE'
+      GROUP BY c.id ORDER BY c.id DESC`)
+    return { data: rows }
+  } catch (error) {
+    return badRequest(reply, error.message)
+  }
+})
+
+app.post('/api/admin/courses', async (request, reply) => {
+  const { adminUserId, name, ageRange, defaultLessonCount, price, description, status = 'DRAFT' } = request.body || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    if (!String(name || '').trim()) throw new Error('name is required')
+    if (!['DRAFT', 'ON_SALE', 'OFF_SALE'].includes(status)) throw new Error('invalid course status')
+    const lessons = positiveInteger(defaultLessonCount, 'defaultLessonCount')
+    const normalizedPrice = Number(price)
+    if (!Number.isFinite(normalizedPrice) || normalizedPrice < 0) throw new Error('price must be non-negative')
+    const [result] = await db.query(`INSERT INTO courses (
+      name, age_range, default_lesson_count, price, description, status
+    ) VALUES (?, ?, ?, ?, ?, ?)`, [name.trim(), ageRange?.trim() || null, lessons, normalizedPrice, description?.trim() || null, status])
+    return reply.code(201).send({ data: { id: result.insertId } })
+  } catch (error) {
+    return badRequest(reply, error.message)
+  }
+})
+
+app.patch('/api/admin/courses/:courseId', async (request, reply) => {
+  const { courseId } = request.params
+  const { adminUserId, name, ageRange, defaultLessonCount, price, description, status } = request.body || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    const id = positiveInteger(courseId, 'courseId')
+    if (!String(name || '').trim()) throw new Error('name is required')
+    if (!['DRAFT', 'ON_SALE', 'OFF_SALE'].includes(status)) throw new Error('invalid course status')
+    const lessons = positiveInteger(defaultLessonCount, 'defaultLessonCount')
+    const normalizedPrice = Number(price)
+    if (!Number.isFinite(normalizedPrice) || normalizedPrice < 0) throw new Error('price must be non-negative')
+    const [result] = await db.query(`UPDATE courses SET
+      name = ?, age_range = ?, default_lesson_count = ?, price = ?, description = ?, status = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?`, [name.trim(), ageRange?.trim() || null, lessons, normalizedPrice, description?.trim() || null, status, id])
+    if (!result.affectedRows) throw new Error('course not found')
+    return { data: { id } }
   } catch (error) {
     return badRequest(reply, error.message)
   }
@@ -224,6 +374,72 @@ app.post('/api/admin/children', async (request, reply) => {
     if (!['UNKNOWN', 'MALE', 'FEMALE'].includes(gender)) throw new Error('invalid gender')
     const [result] = await db.query('INSERT INTO children (name, birthday, gender, remark) VALUES (?, ?, ?, ?)', [name.trim(), birthday || null, gender, remark || null])
     return reply.code(201).send({ data: { id: result.insertId } })
+  } catch (error) {
+    return badRequest(reply, error.message)
+  }
+})
+
+app.patch('/api/admin/children/:childId', async (request, reply) => {
+  const { childId } = request.params
+  const { adminUserId, name, birthday, gender, remark } = request.body || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    const id = positiveInteger(childId, 'childId')
+    if (!String(name || '').trim()) throw new Error('name is required')
+    if (!['UNKNOWN', 'MALE', 'FEMALE'].includes(gender)) throw new Error('invalid gender')
+    const [result] = await db.query(`UPDATE children SET
+      name = ?, birthday = ?, gender = ?, remark = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+    [name.trim(), birthday || null, gender, remark || null, id])
+    if (!result.affectedRows) throw new Error('child not found')
+    return { data: { id } }
+  } catch (error) {
+    return badRequest(reply, error.message)
+  }
+})
+
+app.get('/api/admin/children/:childId/guardians', async (request, reply) => {
+  const { childId } = request.params
+  const { adminUserId } = request.query || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    const [rows] = await db.query(`
+      SELECT pc.parent_user_id, pc.relationship, u.display_name, u.mobile
+      FROM parent_children pc JOIN users u ON u.id = pc.parent_user_id
+      WHERE pc.child_id = ? ORDER BY pc.id`, [positiveInteger(childId, 'childId')])
+    return { data: rows }
+  } catch (error) {
+    return badRequest(reply, error.message)
+  }
+})
+
+app.post('/api/admin/children/:childId/guardians', async (request, reply) => {
+  const { childId } = request.params
+  const { adminUserId, parentUserId, relationship = '监护人' } = request.body || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    const child = positiveInteger(childId, 'childId')
+    const parent = positiveInteger(parentUserId, 'parentUserId')
+    const [parents] = await db.query('SELECT 1 FROM user_roles WHERE user_id = ? AND role = ?', [parent, 'PARENT'])
+    if (!parents.length) throw new Error('parent user not found')
+    await db.query(`INSERT INTO parent_children (parent_user_id, child_id, relationship)
+      VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE relationship = VALUES(relationship)`, [parent, child, String(relationship).trim() || '监护人'])
+    return reply.code(201).send({ data: { childId: child, parentUserId: parent } })
+  } catch (error) {
+    return badRequest(reply, error.message)
+  }
+})
+
+app.delete('/api/admin/children/:childId/guardians/:parentUserId', async (request, reply) => {
+  const { childId, parentUserId } = request.params
+  const { adminUserId } = request.query || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    await db.query('DELETE FROM parent_children WHERE child_id = ? AND parent_user_id = ?', [positiveInteger(childId, 'childId'), positiveInteger(parentUserId, 'parentUserId')])
+    return reply.code(204).send()
   } catch (error) {
     return badRequest(reply, error.message)
   }
@@ -288,6 +504,39 @@ app.post('/api/admin/classes/:classId/sessions', async (request, reply) => {
   }
 })
 
+app.get('/api/admin/classes/:classId/sessions', async (request, reply) => {
+  const { classId } = request.params
+  const { adminUserId } = request.query || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    const [rows] = await db.query(`SELECT id, sequence_no, starts_at, ends_at, campus, room, status
+      FROM class_sessions WHERE class_id = ? ORDER BY sequence_no`, [positiveInteger(classId, 'classId')])
+    return { data: rows }
+  } catch (error) {
+    return badRequest(reply, error.message)
+  }
+})
+
+app.patch('/api/admin/sessions/:sessionId', async (request, reply) => {
+  const { sessionId } = request.params
+  const { adminUserId, startsAt, endsAt, campus, room, status } = request.body || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    const id = positiveInteger(sessionId, 'sessionId')
+    if (!startsAt || !endsAt || new Date(endsAt) <= new Date(startsAt)) throw new Error('startsAt and endsAt must form a valid time range')
+    if (!['SCHEDULED', 'COMPLETED', 'CANCELLED'].includes(status)) throw new Error('invalid session status')
+    const [result] = await db.query(`UPDATE class_sessions SET
+      starts_at = ?, ends_at = ?, campus = ?, room = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+    [startsAt, endsAt, campus || null, room || null, status, id])
+    if (!result.affectedRows) throw new Error('session not found')
+    return { data: { id } }
+  } catch (error) {
+    return badRequest(reply, error.message)
+  }
+})
+
 app.post('/api/admin/enrollments', async (request, reply) => {
   const { adminUserId, childId, classId } = request.body || {}
   const db = getDb()
@@ -314,6 +563,21 @@ app.post('/api/admin/enrollments', async (request, reply) => {
     return badRequest(reply, error.message)
   } finally {
     connection.release()
+  }
+})
+
+app.patch('/api/admin/enrollments/:enrollmentId', async (request, reply) => {
+  const { enrollmentId } = request.params
+  const { adminUserId, status } = request.body || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    if (!['ACTIVE', 'PAUSED', 'COMPLETED', 'REFUNDED'].includes(status)) throw new Error('invalid enrollment status')
+    const [result] = await db.query('UPDATE enrollments SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [status, positiveInteger(enrollmentId, 'enrollmentId')])
+    if (!result.affectedRows) throw new Error('enrollment not found')
+    return { data: { id: Number(enrollmentId), status } }
+  } catch (error) {
+    return badRequest(reply, error.message)
   }
 })
 
@@ -358,6 +622,152 @@ app.post('/api/admin/children/:childId/lesson-adjustments', async (request, repl
     const [result] = await connection.query('INSERT INTO lesson_ledger (child_id, type, quantity, balance_after, reason, idempotency_key, operator_user_id) VALUES (?, ?, ?, ?, ?, ?, ?)', [normalizedChildId, type, normalizedQuantity, nextBalance, reason.trim(), idempotencyKey.trim(), adminUserId])
     await connection.commit()
     return reply.code(201).send({ data: { id: result.insertId, balanceAfter: nextBalance, duplicate: false } })
+  } catch (error) {
+    await connection.rollback()
+    return badRequest(reply, error.message)
+  } finally {
+    connection.release()
+  }
+})
+
+app.get('/api/admin/products', async (request, reply) => {
+  const { adminUserId } = request.query || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    const [rows] = await db.query(`
+      SELECT p.id AS product_id, p.name AS product_name, p.description, p.cover_url, p.status,
+        s.id AS sku_id, s.name AS sku_name, s.sku_code, s.price, s.stock_quantity
+      FROM products p LEFT JOIN product_skus s ON s.product_id = p.id ORDER BY p.id DESC, s.id`)
+    return { data: rows }
+  } catch (error) {
+    return badRequest(reply, error.message)
+  }
+})
+
+app.post('/api/admin/products', async (request, reply) => {
+  const { adminUserId, name, description, coverUrl, status = 'DRAFT' } = request.body || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    if (!String(name || '').trim()) throw new Error('name is required')
+    if (!['DRAFT', 'ON_SALE', 'OFF_SALE'].includes(status)) throw new Error('invalid product status')
+    const [result] = await db.query('INSERT INTO products (name, description, cover_url, status) VALUES (?, ?, ?, ?)', [name.trim(), description?.trim() || null, coverUrl?.trim() || null, status])
+    return reply.code(201).send({ data: { id: result.insertId } })
+  } catch (error) {
+    return badRequest(reply, error.message)
+  }
+})
+
+app.patch('/api/admin/products/:productId', async (request, reply) => {
+  const { productId } = request.params
+  const { adminUserId, name, description, coverUrl, status } = request.body || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    const id = positiveInteger(productId, 'productId')
+    if (!String(name || '').trim()) throw new Error('name is required')
+    if (!['DRAFT', 'ON_SALE', 'OFF_SALE'].includes(status)) throw new Error('invalid product status')
+    const [result] = await db.query(`UPDATE products SET
+      name = ?, description = ?, cover_url = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+    [name.trim(), description?.trim() || null, coverUrl?.trim() || null, status, id])
+    if (!result.affectedRows) throw new Error('product not found')
+    return { data: { id } }
+  } catch (error) {
+    return badRequest(reply, error.message)
+  }
+})
+
+app.post('/api/admin/products/:productId/skus', async (request, reply) => {
+  const { productId } = request.params
+  const { adminUserId, name, skuCode, price, stockQuantity = 0 } = request.body || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    if (!String(name || '').trim() || !String(skuCode || '').trim()) throw new Error('name and skuCode are required')
+    const normalizedPrice = Number(price)
+    const stock = Number(stockQuantity)
+    if (!Number.isFinite(normalizedPrice) || normalizedPrice < 0 || !Number.isInteger(stock) || stock < 0) throw new Error('invalid price or stockQuantity')
+    const [result] = await db.query('INSERT INTO product_skus (product_id, name, sku_code, price, stock_quantity) VALUES (?, ?, ?, ?, ?)', [positiveInteger(productId, 'productId'), name.trim(), skuCode.trim(), normalizedPrice, stock])
+    return reply.code(201).send({ data: { id: result.insertId } })
+  } catch (error) {
+    return badRequest(reply, error.code === 'ER_DUP_ENTRY' ? 'skuCode already exists' : error.message)
+  }
+})
+
+app.patch('/api/admin/skus/:skuId/stock', async (request, reply) => {
+  const { skuId } = request.params
+  const { adminUserId, quantity, reason } = request.body || {}
+  const db = getDb()
+  const connection = await db.getConnection()
+  try {
+    await requireAdmin(connection, adminUserId)
+    const delta = Number(quantity)
+    if (!Number.isInteger(delta) || delta === 0 || !String(reason || '').trim()) throw new Error('non-zero integer quantity and reason are required')
+    await connection.beginTransaction()
+    const [rows] = await connection.query('SELECT stock_quantity FROM product_skus WHERE id = ? FOR UPDATE', [positiveInteger(skuId, 'skuId')])
+    if (!rows.length) throw new Error('sku not found')
+    const nextStock = Number(rows[0].stock_quantity) + delta
+    if (nextStock < 0) throw new Error('stock cannot be negative')
+    // A later inventory movement table can record reasons; this check protects stock now.
+    await connection.query('UPDATE product_skus SET stock_quantity = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [nextStock, skuId])
+    await connection.commit()
+    return { data: { id: Number(skuId), stockQuantity: nextStock, reason: reason.trim() } }
+  } catch (error) {
+    await connection.rollback()
+    return badRequest(reply, error.message)
+  } finally {
+    connection.release()
+  }
+})
+
+app.get('/api/admin/orders', async (request, reply) => {
+  const { adminUserId, status } = request.query || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    const params = []
+    let statusFilter = ''
+    if (status) {
+      if (!['PENDING_PAYMENT', 'PAID', 'SHIPPED', 'COMPLETED', 'CANCELLED', 'REFUNDED'].includes(status)) throw new Error('invalid order status')
+      statusFilter = 'WHERE o.status = ?'
+      params.push(status)
+    }
+    const [rows] = await db.query(`
+      SELECT o.id, o.order_no, o.total_amount, o.status, o.recipient_name_snapshot, o.shipping_address_snapshot,
+        o.tracking_no, o.created_at, u.display_name AS buyer_name
+      FROM orders o JOIN users u ON u.id = o.buyer_user_id ${statusFilter} ORDER BY o.id DESC`, params)
+    return { data: rows }
+  } catch (error) {
+    return badRequest(reply, error.message)
+  }
+})
+
+app.patch('/api/admin/orders/:orderId/status', async (request, reply) => {
+  const { orderId } = request.params
+  const { adminUserId, status, trackingNo } = request.body || {}
+  const db = getDb()
+  const connection = await db.getConnection()
+  try {
+    await requireAdmin(connection, adminUserId)
+    const id = positiveInteger(orderId, 'orderId')
+    if (!['PAID', 'SHIPPED', 'COMPLETED', 'CANCELLED'].includes(status)) throw new Error('invalid target status')
+    await connection.beginTransaction()
+    const [orders] = await connection.query('SELECT id, status FROM orders WHERE id = ? FOR UPDATE', [id])
+    if (!orders.length) throw new Error('order not found')
+    const current = orders[0].status
+    const allowed = { PENDING_PAYMENT: ['PAID', 'CANCELLED'], PAID: ['SHIPPED', 'CANCELLED'], SHIPPED: ['COMPLETED'] }
+    if (!allowed[current]?.includes(status)) throw new Error(`cannot transition order from ${current} to ${status}`)
+    if (status === 'SHIPPED' && !String(trackingNo || '').trim()) throw new Error('trackingNo is required when shipping')
+    if (status === 'CANCELLED') {
+      // Replenish each SKU exactly once while the order row is locked.
+      const [items] = await connection.query('SELECT product_sku_id, quantity FROM order_items WHERE order_id = ?', [id])
+      for (const item of items) await connection.query('UPDATE product_skus SET stock_quantity = stock_quantity + ? WHERE id = ?', [item.quantity, item.product_sku_id])
+    }
+    const timestamps = status === 'SHIPPED' ? 'shipped_at = NOW()' : status === 'COMPLETED' ? 'completed_at = NOW()' : status === 'CANCELLED' ? 'cancelled_at = NOW()' : 'paid_at = NOW()'
+    await connection.query(`UPDATE orders SET status = ?, tracking_no = COALESCE(?, tracking_no), ${timestamps}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [status, trackingNo?.trim() || null, id])
+    await connection.commit()
+    return { data: { id, status } }
   } catch (error) {
     await connection.rollback()
     return badRequest(reply, error.message)
