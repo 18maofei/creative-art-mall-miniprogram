@@ -789,4 +789,70 @@ app.patch('/api/admin/orders/:orderId/status', async (request, reply) => {
   }
 })
 
+app.post('/api/leave-requests', async (request, reply) => {
+  const { parentUserId, childId, sessionId, reason } = request.body || {}
+  const db = getDb()
+  try {
+    if (!parentUserId || !childId || !sessionId || !String(reason || '').trim()) throw new Error('parentUserId, childId, sessionId and reason are required')
+    const [access] = await db.query('SELECT 1 FROM parent_children WHERE parent_user_id = ? AND child_id = ?', [parentUserId, childId])
+    if (!access.length) throw new Error('child access denied')
+    const [sessions] = await db.query(`SELECT 1 FROM class_sessions cs JOIN enrollments e ON e.class_id = cs.class_id
+      WHERE cs.id = ? AND e.child_id = ? AND e.status = 'ACTIVE'`, [sessionId, childId])
+    if (!sessions.length) throw new Error('session is not available for this child')
+    const [result] = await db.query('INSERT INTO leave_requests (child_id, session_id, requested_by_user_id, reason) VALUES (?, ?, ?, ?)', [childId, sessionId, parentUserId, reason.trim()])
+    return reply.code(201).send({ data: { id: result.insertId, status: 'PENDING' } })
+  } catch (error) { return badRequest(reply, error.code === 'ER_DUP_ENTRY' ? 'leave request already exists' : error.message) }
+})
+
+app.get('/api/admin/leave-requests', async (request, reply) => {
+  const { adminUserId, status = 'PENDING' } = request.query || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    const [rows] = await db.query(`SELECT lr.id, lr.status, lr.reason, ch.name AS child_name, cs.starts_at, c.name AS class_name
+      FROM leave_requests lr JOIN children ch ON ch.id = lr.child_id JOIN class_sessions cs ON cs.id = lr.session_id
+      JOIN classes c ON c.id = cs.class_id WHERE lr.status = ? ORDER BY lr.id DESC`, [status])
+    return { data: rows }
+  } catch (error) { return badRequest(reply, error.message) }
+})
+
+app.patch('/api/admin/leave-requests/:leaveRequestId', async (request, reply) => {
+  const { leaveRequestId } = request.params
+  const { adminUserId, status, reviewNote } = request.body || {}
+  const db = getDb()
+  try {
+    await requireAdmin(db, adminUserId)
+    if (!['APPROVED', 'REJECTED'].includes(status)) throw new Error('invalid leave request status')
+    // Approval is recorded separately; attendance remains the teacher's final class record.
+    const [result] = await db.query(`UPDATE leave_requests SET status = ?, reviewed_by_user_id = ?, review_note = ?, reviewed_at = NOW(), updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND status = 'PENDING'`, [status, adminUserId, reviewNote || null, positiveInteger(leaveRequestId, 'leaveRequestId')])
+    if (!result.affectedRows) throw new Error('leave request is no longer pending')
+    return { data: { id: Number(leaveRequestId), status } }
+  } catch (error) { return badRequest(reply, error.message) }
+})
+
+app.post('/api/artworks', async (request, reply) => {
+  const { parentUserId, childId, sessionId, imageUrl, title } = request.body || {}
+  const db = getDb()
+  try {
+    if (!parentUserId || !childId || !String(imageUrl || '').trim()) throw new Error('parentUserId, childId and imageUrl are required')
+    const [access] = await db.query('SELECT 1 FROM parent_children WHERE parent_user_id = ? AND child_id = ?', [parentUserId, childId])
+    if (!access.length) throw new Error('child access denied')
+    // imageUrl is provider-agnostic so local, Cloudinary and OSS can share this business API.
+    const [result] = await db.query('INSERT INTO artworks (child_id, session_id, image_url, title) VALUES (?, ?, ?, ?)', [childId, sessionId || null, imageUrl.trim(), title?.trim() || null])
+    return reply.code(201).send({ data: { id: result.insertId, status: 'UPLOADED' } })
+  } catch (error) { return badRequest(reply, error.message) }
+})
+
+app.get('/api/artworks', async (request, reply) => {
+  const { parentUserId, childId } = request.query || {}
+  const db = getDb()
+  try {
+    const [access] = await db.query('SELECT 1 FROM parent_children WHERE parent_user_id = ? AND child_id = ?', [parentUserId, childId])
+    if (!access.length) throw new Error('child access denied')
+    const [rows] = await db.query('SELECT id, image_url, title, status, created_at FROM artworks WHERE child_id = ? ORDER BY id DESC', [childId])
+    return { data: rows }
+  } catch (error) { return badRequest(reply, error.message) }
+})
+
 app.listen({ port: Number(process.env.PORT || 3000), host: process.env.HOST || '0.0.0.0' })
