@@ -1,0 +1,20 @@
+.records-page { padding-bottom:60rpx; }
+.records-head { display:flex; align-items:center; justify-content:space-between; gap:20rpx; padding:42rpx 28rpx 28rpx; background:#e7f4ee; }
+.head-title { display:block; color:#214438; font-size:40rpx; font-weight:700; }
+.head-copy { display:block; margin-top:8rpx; color:#5e7c71; font-size:23rpx; }
+.outline-btn { flex-shrink:0; padding:14rpx 18rpx; border:1rpx solid #24664f; border-radius:9rpx; background:#fff; color:#24664f; font-size:23rpx; }
+.empty-card { padding:68rpx 24rpx; border-radius:14rpx; background:#fff; color:#82908a; text-align:center; box-shadow:0 8rpx 22rpx rgba(33,68,56,.06); }
+.empty-btn { width:250rpx; margin:28rpx auto 0; padding:14rpx 20rpx; }
+.record-list { display:flex; flex-direction:column; gap:18rpx; }
+.record-card { padding:24rpx; }
+.record-top { display:flex; align-items:center; justify-content:space-between; padding-bottom:18rpx; border-bottom:1rpx solid #edf1ef; }
+.record-child { color:#20332d; font-size:30rpx; font-weight:700; }
+.status { padding:6rpx 14rpx; border-radius:999rpx; background:#fff3dc; color:#ad6c1e; font-size:22rpx; }
+.status.CONFIRMED, .status.COMPLETED { background:#e7f4ee; color:#24664f; }
+.status.CANCELLED { background:#f8e8e7; color:#a44b4b; }
+.record-line { display:flex; justify-content:space-between; gap:16rpx; padding-top:15rpx; color:#52655d; font-size:24rpx; }
+.record-line text:last-child { color:#20332d; text-align:right; }
+.record-note { margin-top:16rpx; padding:14rpx; border-radius:8rpx; background:#f7faf8; color:#62766d; font-size:23rpx; line-height:1.5; }
+.record-note.handled { background:#fff7ec; color:#8a6336; }
+.record-created { display:block; margin-top:16rpx; color:#a0aaa6; font-size:20rpx; }
+@import "../../styles/customer.wxss";

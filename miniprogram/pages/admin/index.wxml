@@ -29,4 +29,10 @@
     </view>
     <view wx:if="{{!classes.length && !loading}}" class="empty">暂无班级数据</view>
   </view>
+  <view class="section admin-action">
+    <view class="card action-card" bindtap="openLeaves">
+      <view><text class="section-title">请假审批</text><text class="muted">处理家长申请，批准后自动标记 LEAVE 考勤</text></view>
+      <text class="action-arrow">›</text>
+    </view>
+  </view>
 </view>

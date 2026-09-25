@@ -1,1 +1,74 @@
-<view class="page"><view class="tabs"><text wx:for="{{tabs}}" wx:key="*this" class="tab {{selected===index?'active':''}}" data-index="{{index}}" bindtap="select">{{item}}</text></view><view class="section"><view class="gallery-card" wx:for="{{items[selected]}}" wx:key="*this"><view class="gallery-art"></view><text>{{item}}</text></view></view></view>
+<view class="page gallery-page">
+  <view class="gallery-head">
+    <text class="gallery-eyebrow">PURE ART CULTURE · GALLERY</text>
+    <text class="gallery-title">创作展廊</text>
+  </view>
+
+  <view class="section gallery-section">
+    <view wx:if="{{loading && !items.length}}" class="state-card">
+      <view class="loading-mark"></view>
+      <text class="state-title">正在整理作品</text>
+      <text class="state-copy">精彩内容马上呈现</text>
+    </view>
+
+    <view wx:elif="{{error && !items.length}}" class="state-card error-state">
+      <text class="state-icon">!</text>
+      <text class="state-title">作品暂时无法加载</text>
+      <text class="state-copy">{{error}}</text>
+      <button class="retry-button" bindtap="loadData">重新加载</button>
+    </view>
+
+    <view wx:elif="{{!items.length}}" class="state-card empty-state">
+      <text class="state-icon empty-icon">✦</text>
+      <text class="state-title">暂无已发布课程作品</text>
+      <text class="state-copy">作品发布后，会在这里展示</text>
+    </view>
+
+    <view wx:else class="gallery-list">
+      <view
+        wx:for="{{items}}"
+        wx:key="id"
+        class="gallery-card"
+        data-id="{{item.id}}"
+        bindtap="openArtwork"
+        hover-class="gallery-card-hover"
+      >
+        <view class="gallery-media">
+          <image
+            wx:if="{{item.image_url && !item.imageError}}"
+            class="gallery-art"
+            mode="aspectFit"
+            src="{{item.image_url}}"
+            lazy-load="true"
+            data-id="{{item.id}}"
+            binderror="handleImageError"
+          ></image>
+          <view wx:else class="gallery-placeholder">
+            <view class="placeholder-shape placeholder-shape-one"></view>
+            <view class="placeholder-shape placeholder-shape-two"></view>
+            <text>作品图片暂不可用</text>
+          </view>
+          <text class="media-tag">课程作品</text>
+        </view>
+
+        <view class="gallery-info">
+          <view class="gallery-copy">
+            <text class="gallery-title-text">{{item.title || '未命名作品'}}</text>
+            <view class="gallery-meta">
+              <text class="meta-label">作者</text>
+              <text class="meta-value">{{item.student_name || '艺术小作者'}}</text>
+            </view>
+          </view>
+          <button
+            class="gallery-favorite {{item.isFavorite ? 'is-favorite' : ''}}"
+            data-id="{{item.id}}"
+            catchtap="toggleFavorite"
+            hover-class="favorite-hover"
+          >
+            <text class="favorite-icon">{{item.isFavorite ? '★' : '☆'}}</text>
+          </button>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

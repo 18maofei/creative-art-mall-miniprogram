@@ -1,0 +1,55 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "art-studio-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-27",
+  "workers_dev": true,
+  "vars": {
+    "ALLOW_DEV_AUTH": "false",
+    "PAYMENT_MODE": "disabled",
+    "WECHAT_PAY_ENABLED": "false",
+    "CORS_ORIGIN": "https://artstudio.murphycai.top",
+    "INSTITUTION_NAME": "纯粹艺术文化",
+    "EMAIL_FROM": "noreply@murphycai.top"
+  },
+  "secrets": {
+    "required": [
+      "SESSION_SECRET",
+      "ADMIN_PASSWORD",
+      "WECHAT_APP_ID",
+      "WECHAT_APP_SECRET"
+    ]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "art-studio",
+      "database_id": "460b10b4-d503-47a4-8a1e-0c3def604367",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ASSETS",
+      "bucket_name": "art-studio-assets"
+    }
+  ],
+  "send_email": [
+    {
+      "name": "EMAIL"
+    }
+  ],
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS_STATIC",
+    "run_worker_first": [
+      "/health",
+      "/api/*"
+    ]
+  },
+  "triggers": {
+    "crons": [
+      "*/5 * * * *"
+    ]
+  }
+}

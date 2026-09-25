@@ -1,0 +1,42 @@
+page { background: #f3f6f3; }
+.settings-page { box-sizing: border-box; padding: 40rpx 36rpx 48rpx; padding-bottom: calc(48rpx + env(safe-area-inset-bottom)); background: #f3f6f3; }
+.settings-intro { display: flex; flex-direction: column; padding: 0 8rpx; margin-bottom: 36rpx; }
+.eyebrow { color: #6e8b7e; font-size: 22rpx; letter-spacing: 4rpx; margin-bottom: 16rpx; }
+.title { color: #214b3e; font-size: 40rpx; font-weight: 600; line-height: 1.5; }
+.copy { color: #78877f; font-size: 24rpx; line-height: 1.6; margin-top: 8rpx; }
+.profile-panel { overflow: hidden; border-radius: 32rpx; background: #fff; box-shadow: 0 12rpx 40rpx rgba(35, 72, 54, .04); }
+.avatar-section { display: flex; flex-direction: column; align-items: center; padding: 44rpx 32rpx 36rpx; background: linear-gradient(180deg, #eaf2eb 0%, #ffffff 100%); }
+.avatar-picker { position: relative; overflow: visible; width: 160rpx; height: 160rpx; margin: 0; padding: 0; border-radius: 50%; background: transparent; }
+.avatar-picker[disabled] { background: transparent; }
+.avatar-image { display: flex; box-sizing: border-box; width: 160rpx; height: 160rpx; align-items: center; justify-content: center; border: 6rpx solid #fff; border-radius: 50%; background: #d8e7dc; box-shadow: 0 8rpx 24rpx rgba(38, 76, 55, .09); }
+.avatar-fallback { color: #326c53; font-size: 56rpx; font-weight: 500; }
+.avatar-edit { position: absolute; right: 0; bottom: 2rpx; display: flex; align-items: center; justify-content: center; width: 44rpx; height: 44rpx; border: 4rpx solid #fff; border-radius: 50%; background: #24664f; }
+.camera-icon { position: relative; display: flex; align-items: center; justify-content: center; width: 22rpx; height: 16rpx; border: 2rpx solid #fff; border-radius: 4rpx; }
+.camera-icon::before { position: absolute; top: -6rpx; width: 9rpx; height: 4rpx; border-radius: 2rpx 2rpx 0 0; background: #fff; content: ''; }
+.camera-lens { width: 7rpx; height: 7rpx; border: 2rpx solid #fff; border-radius: 50%; }
+.avatar-action { padding: 18rpx 24rpx 8rpx; color: #24664f; font-size: 25rpx; font-weight: 500; }
+.avatar-hint { color: #819186; font-size: 22rpx; }
+.nickname-section { padding: 0 32rpx 36rpx; }
+.field-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18rpx; }
+.field-label { font-size: 27rpx; color: #29463a; font-weight: 500; }
+.field-optional { font-size: 21rpx; color: #819186; }
+.nickname-input { box-sizing: border-box; width: 100%; height: 92rpx; padding: 0 24rpx; border-radius: 18rpx; background: #f5f7f4; color: #254739; font-size: 29rpx; }
+.input-placeholder { color: #9aa79e; font-weight: 400; }
+.account-panel { margin-top: 28rpx; padding: 0 30rpx; border-radius: 28rpx; background: #fff; }
+.settings-row { display: flex; align-items: center; justify-content: space-between; padding: 30rpx 0; gap: 16rpx; }
+.row-content { display: flex; flex-direction: column; gap: 10rpx; }
+.row-title { color: #344d40; font-size: 27rpx; font-weight: 500; }
+.row-copy { color: #819186; font-size: 21rpx; }
+.status-pill { display: flex; flex-shrink: 0; align-items: center; gap: 8rpx; padding: 8rpx 14rpx; border-radius: 24rpx; background: #eef5ef; color: #5d8770; font-size: 21rpx; }
+.status-dot { width: 8rpx; height: 8rpx; border-radius: 50%; background: #5d9274; }
+.logout-row { width: 100%; margin: 0; border-top: 1rpx solid #f0f3ee; border-radius: 0; background: transparent; text-align: left; }
+.logout-row[disabled] { background: transparent; }
+.arrow { color: #a2afa5; font-size: 36rpx; font-weight: 300; }
+.save-area { margin-top: 40rpx; }
+.save-button { width: 100%; height: 96rpx; padding: 0; border-radius: 24rpx; background: #24664f; color: #fff; font-size: 29rpx; font-weight: 500; line-height: 96rpx; letter-spacing: 2rpx; box-shadow: 0 10rpx 22rpx rgba(36, 102, 79, .12); }
+.save-button.is-disabled { background: #dce7df; color: #799283; box-shadow: none; }
+.save-hint { display: block; margin-top: 20rpx; text-align: center; color: #819186; font-size: 22rpx; }
+.error-message { margin-bottom: 20rpx; padding: 20rpx 24rpx; border-radius: 16rpx; background: #fff0e9; color: #a25737; font-size: 24rpx; line-height: 1.6; word-break: break-all; }
+.avatar-pressed, .row-pressed { opacity: .7; }
+.save-pressed { background: #1a503d; }
+@import "../../styles/customer.wxss";

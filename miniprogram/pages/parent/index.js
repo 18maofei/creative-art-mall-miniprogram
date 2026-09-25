@@ -1,12 +1,46 @@
-const { mockState, devContext, parentDashboard } = require('../../services/api')
+const { userDashboard, userFeedback, announcements, recordEvent } = require('../../services/api')
+const app = getApp()
+
 Page({
-  data: { child: mockState.child, lessons: mockState.lessons },
-  onLoad() {
-    devContext().then(context => parentDashboard(context)).then(data => {
-      const lessons = data.sessions.map(item => item.starts_at ? ({ date: item.starts_at.slice(5, 10).replace('-', '/'), week: '', title: `${item.course_name} · 第${item.sequence_no}课`, time: item.starts_at.slice(11, 16) + '-' + item.ends_at.slice(11, 16), place: `${item.campus} ${item.room}`, status: item.status === 'SCHEDULED' ? '已排课' : item.status }) : item)
-      this.setData({ child: { name: data.child.name, remainingLessons: data.child.remainingLessons, validUntil: '以课程规则为准' }, lessons })
-    }).catch(() => wx.showToast({ title: '课表加载失败', icon: 'none' }))
+  data: { students: [], child: null, lessons: [], nextSession: null, feedback: [], notices: [], loading: true, loadError: '' },
+  onShow() {
+    recordEvent('page_view', 'parent_dashboard', 'PARENT')
+    this.loadData()
   },
-  renew() { wx.navigateTo({ url: '/pages/course/index' }) },
-  leave() { wx.showToast({ title: '请假申请已提交', icon: 'success' }) }
+  async loadData() {
+    this.setData({ loading: true, loadError: '' })
+    const userId = await app.ensureLogin()
+    if (!userId) {
+      this.setData({ loading: false, loadError: '请登录后查看学习记录' })
+      return
+    }
+    if (!app.hasPermission('child.read')) return this.setData({ students: [], child: null, lessons: [], nextSession: null, feedback: [], notices: [], loading: false })
+    try {
+      const [data, feedback, notices] = await Promise.all([
+        userDashboard(userId),
+        userFeedback(userId).catch(() => []),
+        announcements('PARENT').catch(() => [])
+      ])
+      const students = (data.students || []).map(item => ({ ...item, remainingLessons: item.remaining_lessons }))
+      const lessons = data.sessions || []
+      this.setData({
+        students,
+        child: students[0] || null,
+        lessons,
+        nextSession: lessons[0] || null,
+        feedback: feedback.slice(0, 3),
+        notices: notices.slice(0, 2),
+        loading: false
+      })
+    } catch (error) { this.setData({ loading: false, loadError: error.message || '学习数据加载失败' }) }
+  },
+  goSchedule() { wx.navigateTo({ url: '/pages/class-schedule/index?role=PARENT' }) },
+  goCourse() { wx.switchTab({ url: '/pages/course/index' }) },
+  goShop() { wx.switchTab({ url: '/pages/shop/index' }) },
+  goGallery() { wx.navigateTo({ url: '/pages/gallery/index' }) },
+  goLeave() { wx.navigateTo({ url: '/pages/leave/index' }) },
+  goAddress() { wx.navigateTo({ url: '/pages/address/index' }) },
+  goLedger() { wx.navigateTo({ url: '/pages/lesson-ledger/index' }) },
+  goProfile() { wx.switchTab({ url: '/pages/profile/index' }) },
+  goHome() { wx.switchTab({ url: '/pages/home/index' }) }
 })

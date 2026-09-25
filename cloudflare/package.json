@@ -1,0 +1,23 @@
+{
+  "name": "art-studio-cloudflare",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "config:sync": "node scripts/sync-public-config.mjs",
+    "preflight:production": "npm run config:sync && node scripts/production-preflight.mjs",
+    "deploy": "npm run preflight:production && wrangler deploy",
+    "deploy:dry": "npm run preflight:production && wrangler deploy --dry-run",
+    "db:local": "wrangler d1 migrations apply art-studio --local",
+    "db:remote": "wrangler d1 migrations apply art-studio --remote",
+    "db:bootstrap-admin": "wrangler d1 execute art-studio --local --file=scripts/bootstrap-admin.sql",
+    "db:bootstrap-admin:remote": "wrangler d1 execute art-studio --remote --file=scripts/bootstrap-admin.sql",
+    "db:seed": "wrangler d1 execute art-studio --local --file=scripts/seed.sql",
+    "db:seed:remote": "wrangler d1 execute art-studio --remote --file=scripts/seed.sql",
+    "types": "wrangler types"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

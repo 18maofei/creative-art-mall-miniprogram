@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>画室小程序页面交互预览</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #edf2ef; color: #21342d; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    button, input, textarea, select { font: inherit; }
+    .app { max-width: 430px; min-height: 100vh; margin: 0 auto; background: #f8faf9; box-shadow: 0 0 30px rgba(30, 50, 42, .12); }
+    .top { padding: 18px 20px; background: #fff; border-bottom: 1px solid #e0e8e4; }
+    .brand { font-size: 19px; font-weight: 700; }
+    .sub { margin-top: 4px; color: #708078; font-size: 12px; }
+    .view { padding: 18px 16px 86px; }
+    .hero { padding: 28px 22px; border-radius: 8px; background: #dfeee7; }
+    .hero h1 { margin: 8px 0; font-size: 28px; line-height: 1.2; }
+    .eyebrow, .muted { color: #5d786c; font-size: 12px; }
+    .section { margin-top: 18px; }
+    .section h2, .view > h2 { margin: 0 0 10px; font-size: 16px; }
+    .card { margin-bottom: 10px; padding: 15px; border: 1px solid #dfe8e3; border-radius: 8px; background: #fff; }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .quick { padding: 15px; border: 1px solid #dfe8e3; border-radius: 8px; background: #fff; text-align: center; cursor: pointer; }
+    .price { color: #18785c; font-size: 18px; font-weight: 700; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 14px; overflow: auto; }
+    .tab { white-space: nowrap; padding: 8px 11px; border: 1px solid #d8e4de; border-radius: 16px; background: #fff; cursor: pointer; }
+    .tab.active { border-color: #18785c; background: #e7f4ee; color: #18785c; }
+    .btn { padding: 9px 13px; border: 0; border-radius: 7px; background: #18785c; color: #fff; cursor: pointer; }
+    .btn.outline { border: 1px solid #18785c; background: #fff; color: #18785c; }
+    .nav { position: fixed; bottom: 0; left: 50%; display: flex; justify-content: space-around; width: min(430px, 100%); padding: 10px 4px; background: #fff; border-top: 1px solid #e0e8e4; transform: translateX(-50%); }
+    .nav button { border: 0; background: none; color: #62746b; cursor: pointer; }
+    .nav button.active { color: #18785c; font-weight: 700; }
+    .modal { position: fixed; inset: 0; display: none; align-items: end; justify-content: center; background: rgba(0,0,0,.35); }
+    .modal.show { display: flex; }
+    .sheet { width: min(430px, 100%); padding: 20px; border-radius: 14px 14px 0 0; background: #fff; }
+    .sheet h2 { margin-top: 0; }
+    input, textarea { width: 100%; margin: 6px 0 10px; padding: 10px; border: 1px solid #dce6e1; border-radius: 6px; }
+    .gallery { height: 125px; border-radius: 6px; background: linear-gradient(135deg, #d9ece3, #f4d7d0); }
+    .notice { padding: 10px; border-radius: 6px; background: #fff3df; color: #925916; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="top">
+      <div class="brand">拾色画室</div>
+      <div class="sub">小程序交互预览 · 本地演示数据</div>
+    </header>
+    <div id="view" class="view"></div>
+  </main>
+
+  <nav class="nav">
+    <button data-page="home">首页</button>
+    <button data-page="course">课程</button>
+    <button data-page="shop">商城</button>
+    <button data-page="parent">家长</button>
+    <button data-page="profile">我的</button>
+  </nav>
+
+  <div id="modal" class="modal">
+    <div class="sheet" id="sheet"></div>
+  </div>
+
+  <script>
+    const state = {
+      page: "home",
+      filter: "ALL",
+      cart: [],
+      orders: [],
+      addresses: [],
+      courses: [
+        { id: 1, name: "创意美术启蒙班", category: "INTRO", age: "6-8岁", lessons: 12, price: 1680, desc: "从色彩、构图与手作开始，建立观察力和表达力。" },
+        { id: 2, name: "少儿创作进阶班", category: "ADVANCED", age: "8-11岁", lessons: 16, price: 2280, desc: "主题表达、材料探索与作品展示，适合已有基础的孩子。" }
+      ],
+      products: [
+        { id: 1, name: "儿童创作画材套装", price: 99 },
+        { id: 2, name: "画室原创帆布袋", price: 49 }
+      ]
+    };
+
+    const $ = selector => document.querySelector(selector);
+    const escapeHtml = value => String(value).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[ch]));
+
+    function render() {
+      document.querySelectorAll(".nav button").forEach(button => {
+        button.classList.toggle("active", button.dataset.page === state.page);
+      });
+
+      const view = $("#view");
+      if (state.page === "home") {
+        view.innerHTML = `
+          <div class="hero">
+            <div class="eyebrow">少儿美术</div>
+            <h1>看见孩子的创造力</h1>
+            <div class="muted">艺术启蒙、课程服务与成长陪伴</div>
+            <p><button class="btn" onclick="go('course')">浏览课程</button></p>
+          </div>
+          <div class="section">
+            <h2>快捷入口</h2>
+            <div class="grid">
+              <div class="quick" onclick="go('course')">课程报名</div>
+              <div class="quick" onclick="go('shop')">周边商城</div>
+              <div class="quick" onclick="go('parent')">家长入口</div>
+              <div class="quick" onclick="go('profile')">我的服务</div>
+            </div>
+          </div>
+          <div class="section">
+            <h2>课堂作品与教学花絮</h2>
+            <div class="grid">
+              <div class="card" onclick="gallery('课堂作品')"><div class="gallery"></div><p>课堂作品</p></div>
+              <div class="card" onclick="gallery('教学花絮')"><div class="gallery"></div><p>教学花絮</p></div>
+            </div>
+          </div>`;
+      }
+
+      if (state.page === "course") {
+        const filters = [["ALL", "全部课程"], ["INTRO", "艺术启蒙"], ["ADVANCED", "创作进阶"]];
+        const list = state.filter === "ALL" ? state.courses : state.courses.filter(course => course.category === state.filter);
+        view.innerHTML = `
+          <h2>课程报名</h2>
+          <div class="tabs">${filters.map(item => `<button class="tab ${state.filter === item[0] ? "active" : ""}" onclick="filterCourse('${item[0]}')">${item[1]}</button>`).join("")}</div>
+          ${list.map(course => `
+            <div class="card">
+              <div class="row"><b>${course.name}</b><span class="price">¥${course.price}</span></div>
+              <p class="muted">${course.age} · ${course.lessons} 次课</p>
+              <p>${course.desc}</p>
+              <button class="btn" onclick="courseDetail(${course.id})">查看详情</button>
+            </div>`).join("")}`;
+      }
+
+      if (state.page === "shop") {
+        const address = state.addresses[0] ? `<div class="notice">收货地址：${escapeHtml(state.addresses[0].detail)}</div>` : `<div class="notice">请先在“我的”中保存收货地址；也可以提交订单时补充。</div>`;
+        view.innerHTML = `
+          <h2>周边商城</h2>
+          ${address}
+          ${state.products.map(product => `
+            <div class="card">
+              <div class="row"><b>${product.name}</b><span class="price">¥${product.price}</span></div>
+              <button class="btn outline" onclick="addCart(${product.id})">加入购物车</button>
+            </div>`).join("")}
+          <div class="card row"><span>购物车 ${state.cart.length} 件</span><button class="btn" onclick="checkout()">提交订单</button></div>`;
+      }
+
+      if (state.page === "parent") {
+        view.innerHTML = `
+          <h2>家长服务</h2>
+          <div class="card">
+            <b>乐乐 · 剩余 12 次课</b>
+            <p class="muted">下一节：创意美术启蒙班</p>
+            <button class="btn" onclick="leaveRequest()">提交请假申请</button>
+          </div>
+          <div class="card">
+            <b>我的作品</b>
+            <p class="muted">上传入口会在接入对象存储后启用。</p>
+            <button class="btn outline" onclick="gallery('我的作品')">查看作品</button>
+          </div>`;
+      }
+
+      if (state.page === "profile") {
+        view.innerHTML = `
+          <h2>我的服务</h2>
+          <div class="card"><button class="btn" onclick="addressForm()">收货地址</button></div>
+          <div class="card">
+            <b>我的订单</b>
+            ${state.orders.length ? state.orders.map(order => `<p>${order.no} · ¥${order.total} · 待付款</p>`).join("") : `<p class="muted">暂无订单</p>`}
+          </div>
+          <div class="card">
+            <b>画室管理</b>
+            <p class="muted">学生、课时、排课、库存、报名等后台管理入口。</p>
+          </div>`;
+      }
+    }
+
+    function go(page) { state.page = page; render(); }
+    function filterCourse(filter) { state.filter = filter; render(); }
+    function courseDetail(id) {
+      const course = state.courses.find(item => item.id === id);
+      openSheet(`<h2>${course.name}</h2><p>${course.desc}</p><p class="price">¥${course.price}</p><p>${course.age} · ${course.lessons} 次课</p><button class="btn" onclick="closeModal()">提交报名咨询</button>`);
+    }
+    function addCart(id) { state.cart.push(id); render(); }
+    function checkout() {
+      if (!state.cart.length) { alert("购物车为空"); return; }
+      if (!state.addresses.length) { addressForm(); return; }
+      const total = state.cart.reduce((sum, id) => sum + (state.products.find(product => product.id === id)?.price || 0), 0);
+      state.orders.unshift({ no: "ART" + Date.now(), total });
+      state.cart = [];
+      go("profile");
+    }
+    function addressForm() { openSheet(`<h2>收货地址</h2><input id="detail" placeholder="详细地址"><button class="btn" onclick="saveAddress()">保存地址</button>`); }
+    function saveAddress() {
+      const detail = $("#detail").value.trim();
+      if (!detail) { alert("请填写详细地址"); return; }
+      state.addresses = [{ detail }];
+      closeModal();
+      render();
+    }
+    function leaveRequest() { openSheet(`<h2>请假申请</h2><textarea placeholder="请假原因"></textarea><button class="btn" onclick="closeModal()">提交申请</button>`); }
+    function gallery(title) { openSheet(`<h2>${title}</h2><div class="gallery"></div><p>作品和花絮内容页交互预览。</p><button class="btn" onclick="closeModal()">关闭</button>`); }
+    function openSheet(html) { $("#sheet").innerHTML = html; $("#modal").classList.add("show"); }
+    function closeModal() { $("#modal").classList.remove("show"); }
+
+    document.querySelectorAll(".nav button").forEach(button => {
+      button.onclick = () => go(button.dataset.page);
+    });
+    render();
+  </script>
+</body>
+</html>

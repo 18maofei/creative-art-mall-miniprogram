@@ -1,0 +1,27 @@
+/* 所有客户页面共享的外观规则，放在页面样式末尾导入。 */
+page { background: #f3f6f3; color: #214b3e; }
+.card, .favorite-card, .gallery-card { border-radius: 28rpx; box-shadow: 0 8rpx 28rpx rgba(35,72,54,.04); }
+.primary-btn, .save-button, .retry-button { background: #24664f; color: #fff; border-radius: 22rpx; min-height: 84rpx; box-sizing: border-box; font-size: 28rpx; }
+.primary-btn { display: flex; align-items: center; justify-content: center; padding: 20rpx 28rpx; line-height: 1.5; }
+.outline-btn { border: 1rpx solid #c9dcd1; border-radius: 20rpx; color: #24664f; background: #fff; min-height: 72rpx; box-sizing: border-box; }
+.price, .amount { color: #b77940; font-variant-numeric: tabular-nums; }
+.muted { line-height: 1.6; }
+.section { margin-left: 32rpx; margin-right: 32rpx; }
+.section-title { font-size: 32rpx; color: #214b3e; }
+.section-link { color: #24664f; padding: 12rpx 0 12rpx 12rpx; }
+.page-title, .head-title, .gallery-title { font-size: 40rpx; line-height: 1.4; color: #214b3e; }
+.course-head, .shop-head, .schedule-head, .ledger-head, .records-head, .trial-hero { background: #f3f6f3; padding: 32rpx; }
+.course-search, .shop-search, .search-bar { border-radius: 20rpx; min-height: 84rpx; background: #fff; }
+.search-input { font-size: 26rpx; }
+.form input, .form textarea, .field-column textarea { box-sizing: border-box; border: 1rpx solid #e4ece6; border-radius: 16rpx; background: #f8faf7; }
+.form input { min-height: 88rpx; }
+.empty, .empty-card, .empty-state { color: #78877f; font-size: 26rpx; line-height: 1.7; }
+.tab { min-height: 72rpx; box-sizing: border-box; line-height: 1.4; margin-right: 14rpx; }
+.tabs { width: 100%; min-width: 0; }
+.favorite-button, .gallery-favorite, .remove-button { min-width: 72rpx; min-height: 72rpx; }
+.state-wrap { margin: 28rpx 32rpx; }
+.page-intro { display: flex; flex-direction: column; gap: 10rpx; padding: 32rpx 32rpx 0; }
+.intro-title { font-size: 40rpx; font-weight: 600; color: #214b3e; }
+.intro-copy { color: #78877f; font-size: 24rpx; line-height: 1.6; }
+.text-action { padding: 14rpx 18rpx; border-radius: 16rpx; background: #edf4ee; color: #24664f; font-size: 24rpx; }
+.primary-btn.is-disabled { background: #dce7df; color: #799283; }

@@ -6,7 +6,8 @@ const connection = {
   user: process.env.DB_USER || 'art_studio_app',
   password: process.env.DB_PASSWORD || 'change-me-local-only',
   database: process.env.DB_NAME || 'art_studio',
-  charset: 'utf8mb4'
+  charset: 'utf8mb4',
+  dateStrings: true
 }
 
 export default {

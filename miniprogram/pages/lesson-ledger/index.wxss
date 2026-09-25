@@ -1,0 +1,27 @@
+.ledger-page { padding-bottom:60rpx; }
+.ledger-head { display:flex; flex-direction:column; gap:10rpx; padding:44rpx 32rpx 36rpx; background:#e7f4ee; }
+.head-title { color:#214438; font-size:42rpx; font-weight:700; }
+.head-copy { color:#5e7c71; font-size:23rpx; }
+.child-picker { display:flex; align-items:center; justify-content:space-between; padding:0 24rpx; min-height:88rpx; color:#52655d; font-size:26rpx; }
+.child-picker picker { flex:1; }
+.picker-value { display:flex; align-items:center; justify-content:flex-end; gap:18rpx; color:#20332d; }
+.picker-value text { color:#24664f; font-size:36rpx; }
+.balance-card { display:flex; align-items:center; justify-content:space-between; margin-top:18rpx; padding:24rpx; border-radius:14rpx; background:#fff7ec; }
+.balance-card view { display:flex; flex-direction:column; gap:6rpx; }
+.muted { color:#8a6b45; font-size:23rpx; }
+.balance { color:#ad6c1e; font-size:54rpx; font-weight:700; }
+.balance text { font-size:25rpx; }
+.balance-tip { color:#9d805c; font-size:21rpx; }
+.empty-card { margin-top:18rpx; padding:60rpx 24rpx; border-radius:14rpx; background:#fff; color:#82908a; text-align:center; }
+.ledger-list { display:flex; flex-direction:column; gap:14rpx; margin-top:18rpx; }
+.ledger-row { display:flex; align-items:center; justify-content:space-between; gap:18rpx; padding:22rpx 24rpx; }
+.ledger-main { display:flex; min-width:0; flex:1; flex-direction:column; gap:6rpx; }
+.ledger-type { color:#20332d; font-size:27rpx; font-weight:600; }
+.ledger-reason { overflow:hidden; color:#65776f; font-size:23rpx; text-overflow:ellipsis; white-space:nowrap; }
+.ledger-time { color:#a0aaa6; font-size:20rpx; }
+.ledger-side { display:flex; flex-direction:column; align-items:flex-end; gap:6rpx; }
+.quantity { font-size:31rpx; font-weight:700; }
+.quantity.positive { color:#24664f; }
+.quantity.negative { color:#b85b4d; }
+.after { color:#82908a; font-size:20rpx; }
+@import "../../styles/customer.wxss";

@@ -1,0 +1,4 @@
+.wrangler/
+.dev.vars
+.secrets.json
+node_modules/

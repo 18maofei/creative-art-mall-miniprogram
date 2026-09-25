@@ -1,147 +1,194 @@
-const app = getApp()
+// App.onLaunch 可能先加载此模块；请求发出时再读取实例，不能缓存初始化期间的 undefined。
+const app = { get globalData() { return getApp().globalData } }
 
-const mockState = {
-  addresses: [],
-  orders: [],
-  child: { name: '乐乐', remainingLessons: 12, validUntil: '2026/12/31' },
-  lessons: [
-    { date: '07/25', week: '周六', title: '创意美术启蒙班 · 第4课', time: '10:00-11:30', place: 'A校区 201', status: '待上课' },
-    { date: '08/01', week: '周六', title: '创意美术启蒙班 · 第5课', time: '10:00-11:30', place: 'A校区 201', status: '已排课' }
-  ],
-  courses: [
-    { id: 'course-art', name: '创意美术启蒙班', age: '6-8岁', lessons: 12, schedule: '每周六 10:00-11:30', price: 1680, color: 'sand', description: '通过色彩、构图和手作创作，帮助孩子建立观察力、表达力与创造力。' },
-    { id: 'course-sketch', name: '少儿创作进阶班', age: '8-11岁', lessons: 16, schedule: '每周日 14:00-15:30', price: 2280, color: 'blue', description: '从主题表达、材料探索到作品展示，持续发展孩子的创作能力。' }
-  ],
-  products: [
-    { id: 'goods-kit', name: '儿童创作画材套装', desc: '画笔、颜料与画册组合', price: 99, color: 'pink' },
-    { id: 'goods-bag', name: '画室原创帆布袋', desc: '课堂日常与作品收纳', price: 49, color: 'sand' }
-  ],
-  students: [
-    { id: 's1', name: '乐乐', initial: '乐', state: '出勤', remaining: 12 },
-    { id: 's2', name: '安安', initial: '安', state: '请假', remaining: 8 },
-    { id: 's3', name: '小米', initial: '小', state: '出勤', remaining: 6 }
-  ]
+function apiBaseUrl() {
+  const value = String(app.globalData.apiBaseUrl || '').replace(/\/+$/, '')
+  if (!value || /REPLACE_WITH_YOUR_WORKER_DOMAIN/i.test(value)) throw new Error('请先在 miniprogram/config.js 填写线上 API 地址')
+  if (/^https:\/\//i.test(value)) return value
+  if (app.globalData.demoMode && app.globalData.allowInsecureHttp && /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/i.test(value)) return value
+  throw new Error('小程序线上模式只允许 HTTPS API 地址')
 }
 
-function request(path, method = 'GET', data) {
-  if (app.globalData.demoMode) return Promise.resolve(mockState)
+function request(path, method = 'GET', data, adminUserId) {
   return new Promise((resolve, reject) => {
+    let url
+    try { url = `${apiBaseUrl()}${path}` } catch (error) { reject(error); return }
+    const header = { 'content-type': 'application/json' }
+    const token = wx.getStorageSync('zhixingToken')
+    if (token) header.Authorization = `Bearer ${token}`
+    if (adminUserId) header['X-Admin-User-Id'] = String(adminUserId)
     wx.request({
-      url: `${app.globalData.apiBaseUrl}${path}`,
+      url,
       method,
       data,
-      success: ({ data: response }) => resolve(response.data || response),
-      fail: reject
+      header,
+      timeout: 15000,
+      success: ({ statusCode, data: response }) => {
+        if (statusCode >= 200 && statusCode < 300 && response && Object.hasOwn(response, 'data')) return resolve(response.data)
+        const error = new Error((response && response.message) || '请求失败，请稍后重试')
+        error.statusCode = statusCode
+        reject(error)
+      },
+      fail: error => reject(new Error(/timeout/i.test(error?.errMsg || '') ? '请求超时，请重试' : '网络连接失败，请检查网络后重试'))
     })
   })
 }
 
-function api(path, method = 'GET', data) {
-  return request(path, method, data)
+// wx.uploadFile 用于头像等本地临时文件；响应仍要求使用统一 { data } 包装。
+function uploadFile(path, filePath, formData = {}) {
+  return new Promise((resolve, reject) => {
+    let url
+    try { url = `${apiBaseUrl()}${path}` } catch (error) { reject(error); return }
+    const header = { Authorization: `Bearer ${wx.getStorageSync('zhixingToken')}` }
+    wx.uploadFile({
+      url,
+      filePath,
+      name: 'file',
+      formData,
+      header,
+      timeout: 15000,
+      success: ({ statusCode, data: raw }) => {
+        let response = raw
+        if (typeof raw === 'string') {
+          try { response = raw ? JSON.parse(raw) : {} } catch { response = {} }
+        }
+        if (statusCode >= 200 && statusCode < 300 && response && Object.hasOwn(response, 'data')) return resolve(response.data)
+        const message = response && (response.message || response.error || response.errMsg)
+        reject(new Error(message || `上传失败（${statusCode || '网络异常'}）`))
+      },
+      fail: error => reject(new Error(error?.errMsg || error?.message || '头像上传网络失败'))
+    })
+  })
 }
 
+let devContextCache = null
 function devContext() {
-  if (app.globalData.demoMode) return Promise.resolve({ parentUserId: 1, teacherUserId: 2, adminUserId: 3, childId: 1 })
-  return api('/api/dev/context')
+  if (devContextCache) return Promise.resolve(devContextCache)
+  return request('/api/dev/context').then(context => {
+    devContextCache = context
+    return context
+  })
 }
 
-function courses() { return app.globalData.demoMode ? Promise.resolve(mockState.courses) : api('/api/courses') }
-function products() { return app.globalData.demoMode ? Promise.resolve(mockState.products) : api('/api/products') }
-function parentDashboard(context) {
-  if (app.globalData.demoMode) return Promise.resolve({ child: mockState.child, sessions: mockState.lessons })
-  return api(`/api/parent/dashboard?parentUserId=${context.parentUserId}&childId=${context.childId}`)
-}
-function teacherSessions(context) { return app.globalData.demoMode ? Promise.resolve([{ id: 1 }]) : api(`/api/teacher/sessions?teacherUserId=${context.teacherUserId}`) }
-function attendance(sessionId) { return app.globalData.demoMode ? Promise.resolve(mockState.students) : api(`/api/sessions/${sessionId}/attendance`) }
-function confirmAttendance(sessionId, teacherUserId, records) {
-  if (app.globalData.demoMode) return Promise.resolve({ records })
-  return api(`/api/sessions/${sessionId}/attendance/confirm`, 'POST', { teacherUserId, records })
-}
-function createOrder(buyerUserId, items, shippingAddressId) {
-  if (app.globalData.demoMode) { const orderNo = `DEMO${Date.now()}`; mockState.orders.unshift({ id: Date.now(), order_no: orderNo, total_amount: items.reduce((sum, item) => sum + item.quantity, 0), status: 'PENDING_PAYMENT', shipping_address_snapshot: mockState.addresses[0]?.detail || '' }); return Promise.resolve({ orderNo, status: 'PENDING_PAYMENT' }) }
-  return api('/api/orders', 'POST', { buyerUserId, items, shippingAddressId })
+function recordEvent(eventName, page, role) {
+  const user = app.globalData.user
+  return request('/api/events', 'POST', { eventName, page, role, userId: user ? user.id : undefined }).catch(() => undefined)
 }
 
-function addresses(userId) {
-  if (app.globalData.demoMode) return Promise.resolve(mockState.addresses)
-  return api(`/api/addresses?userId=${userId}`)
+function mediaUrl(value) {
+  if (!value) return ''
+  if (value.indexOf('/api/assets/') === 0) return `${app.globalData.apiBaseUrl}${value}`
+  const legacy = value.match(/r2\.cloudflarestorage\.com\/(.+)$/)
+  return legacy ? `${app.globalData.apiBaseUrl}/api/assets/${legacy[1]}` : value
 }
-function createAddress(data) {
-  if (app.globalData.demoMode) { const id = Date.now(); mockState.addresses = [{ id, recipient_name: data.recipientName, mobile: data.mobile, province: data.province, city: data.city, district: data.district, detail: data.detail, is_default: true }]; return Promise.resolve({ id, isDefault: true }) }
-  return api('/api/addresses', 'POST', data)
+
+function normalizeCourse(item) {
+  return {
+    ...item,
+    name: item.title,
+    age: item.age_range || '年龄待定',
+    lessons: Number(item.sessions || 0),
+    schedule: item.schedule || '时间待定',
+    description: item.description || '暂无课程介绍',
+    cover_url: mediaUrl(item.cover_url)
+  }
 }
-function userOrders(buyerUserId) {
-  if (app.globalData.demoMode) return Promise.resolve(mockState.orders)
-  return api(`/api/orders?buyerUserId=${buyerUserId}`)
-}
-function createChild(adminUserId, data) {
-  if (app.globalData.demoMode) return Promise.resolve({ id: Date.now() })
-  return api('/api/admin/children', 'POST', { adminUserId, ...data })
-}
-function adjustLessons(adminUserId, childId, data) {
-  if (app.globalData.demoMode) return Promise.resolve({ id: Date.now(), balanceAfter: 12, duplicate: false })
-  return api(`/api/admin/children/${childId}/lesson-adjustments`, 'POST', { adminUserId, ...data })
-}
-function adminOrders(adminUserId) {
-  if (app.globalData.demoMode) return Promise.resolve([])
-  return api(`/api/admin/orders?adminUserId=${adminUserId}`)
-}
-function updateOrderStatus(adminUserId, orderId, status, trackingNo) {
-  if (app.globalData.demoMode) return Promise.resolve({ id: orderId, status })
-  return api(`/api/admin/orders/${orderId}/status`, 'PATCH', { adminUserId, status, trackingNo })
-}
-function adminCourses(adminUserId) {
-  if (app.globalData.demoMode) return Promise.resolve(mockState.courses.map((course, index) => ({ id: index + 1, name: course.name, age_range: course.age, default_lesson_count: course.lessons, price: course.price, status: 'ON_SALE' })))
-  return api(`/api/admin/courses?adminUserId=${adminUserId}`)
-}
-function createCourse(adminUserId, data) {
-  if (app.globalData.demoMode) return Promise.resolve({ id: Date.now() })
-  return api('/api/admin/courses', 'POST', { adminUserId, ...data })
-}
-function createClass(adminUserId, data) {
-  if (app.globalData.demoMode) return Promise.resolve({ id: Date.now() })
-  return api('/api/admin/classes', 'POST', { adminUserId, ...data })
-}
-function createSession(adminUserId, classId, data) {
-  if (app.globalData.demoMode) return Promise.resolve({ id: Date.now() })
-  return api(`/api/admin/classes/${classId}/sessions`, 'POST', { adminUserId, ...data })
-}
-function createParent(adminUserId, data) {
-  if (app.globalData.demoMode) return Promise.resolve({ id: Date.now() })
-  return api('/api/admin/parents', 'POST', { adminUserId, ...data })
-}
-function bindGuardian(adminUserId, childId, parentUserId, relationship) {
-  if (app.globalData.demoMode) return Promise.resolve({ childId, parentUserId })
-  return api(`/api/admin/children/${childId}/guardians`, 'POST', { adminUserId, parentUserId, relationship })
-}
+function normalizeProduct(item) { return { ...item, name: item.title, desc: item.description, cover_url: mediaUrl(item.cover_url) } }
+function normalizeArtwork(item) { return { ...item, image_url: mediaUrl(item.image_url) } }
+
+// ---------- 公开 ----------
+function bootstrap() { return request('/api/public/bootstrap').then(data => ({ ...data, courses: (data.courses || []).map(normalizeCourse), products: (data.products || []).map(normalizeProduct), artworks: (data.artworks || []).map(normalizeArtwork) })) }
+function courses() { return request('/api/courses').then(rows => rows.map(normalizeCourse)) }
+function products() { return request('/api/products').then(rows => rows.map(normalizeProduct)) }
+function artworks(kind) { return request(`/api/artworks${kind ? `?kind=${encodeURIComponent(kind)}` : ''}`).then(rows => rows.map(normalizeArtwork)) }
+function announcements(audience) { return request(`/api/announcements${audience ? `?audience=${audience}` : ''}`) }
+function createTrialAppointment(payload) { return request('/api/trial-appointments', 'POST', payload) }
+
+// 身份和权限只从服务端会话快照读取；本地缓存仅用于携带会话令牌。
+function authMe() { return request('/api/auth/me') }
+function switchRole(role) { return request('/api/auth/switch-role', 'POST', { role }) }
+function bindWechatPhone(code) { return request('/api/auth/wechat-phone', 'POST', { code }) }
+
+// ---------- 用户 ----------
+function updateProfile(payload) { return request('/api/users/profile', 'PATCH', payload) }
+function uploadProfileAvatar(filePath, nickname) { return uploadFile('/api/users/profile/avatar', filePath, nickname ? { nickname } : {}) }
+function userDashboard(userId) { return request(`/api/users/${userId}/dashboard`) }
+function userOrders(userId) { return request(`/api/users/${userId}/orders`) }
+function userTrialAppointments(userId) { return request(`/api/users/${userId}/trial-appointments`) }
+function lessonLedger(userId, childId) { return request(`/api/users/${userId}/lesson-ledger${childId ? `?childId=${encodeURIComponent(childId)}` : ''}`) }
+function orderStatus(orderId) { return request(`/api/orders/${orderId}/status`) }
+function createOrder(buyerUserId, type, subjectId, extra) { return request('/api/orders', 'POST', { buyerUserId, type, subjectId, ...(extra || {}) }) }
+function mockPay(orderId, userId) { return request(`/api/orders/${orderId}/mock-pay`, 'POST', { userId }) }
+function wechatPay(orderId) { return request(`/api/orders/${orderId}/pay`, 'POST') }
+function confirmReceipt(orderId, userId) { return request(`/api/orders/${orderId}/confirm-receipt`, 'POST', { userId }) }
+function cancelOrder(orderId, userId) { return request(`/api/orders/${orderId}/cancel`, 'POST', { userId }) }
+function addresses(userId) { return request(`/api/users/${userId}/addresses`) }
+function createAddress(payload) { return request(`/api/users/${payload.userId}/addresses`, 'POST', payload) }
+function updateAddress(userId, addressId, patch) { return request(`/api/users/${userId}/addresses/${addressId}`, 'PATCH', patch) }
+function deleteAddress(userId, addressId) { return request(`/api/users/${userId}/addresses/${addressId}`, 'DELETE') }
+function leaveRequests(userId) { return request(`/api/users/${userId}/leave-requests`) }
+function createLeaveRequest(payload) { return request('/api/leave-requests', 'POST', payload) }
+function userFeedback(userId) { return request(`/api/users/${userId}/feedback`) }
+
+// ---------- 教师 ----------
+function teacherSessions(userId) { return request(`/api/teacher/${userId}/sessions`) }
+function attendance(sessionId) { return request(`/api/sessions/${sessionId}/attendance`) }
+function confirmAttendance(sessionId, records) { return request(`/api/sessions/${sessionId}/attendance`, 'POST', { records }) }
+function submitSessionFeedback(sessionId, payload) { return request(`/api/sessions/${sessionId}/feedback`, 'POST', payload) }
+
+// ---------- 管理端（开发模式经 X-Admin-User-Id 头登录） ----------
+function adminOverview(adminUserId) { return request('/api/admin/overview', 'GET', undefined, adminUserId) }
+function adminAnalytics(adminUserId) { return request('/api/admin/analytics', 'GET', undefined, adminUserId) }
+function adminCourses(adminUserId) { return request('/api/admin/courses', 'GET', undefined, adminUserId) }
+function createCourse(adminUserId, payload) { return request('/api/admin/courses', 'POST', payload, adminUserId) }
 function adminProducts(adminUserId) {
-  if (app.globalData.demoMode) return Promise.resolve([])
-  return api(`/api/admin/products?adminUserId=${adminUserId}`)
+  return request('/api/admin/products', 'GET', undefined, adminUserId).then(rows => {
+    const flat = []
+    for (const product of rows) {
+      for (const sku of product.skus || []) {
+        flat.push({ ...sku, product_id: product.id, product_name: product.title, product_status: product.status })
+      }
+    }
+    return flat
+  })
 }
-function createProduct(adminUserId, data) {
-  if (app.globalData.demoMode) return Promise.resolve({ id: Date.now() })
-  return api('/api/admin/products', 'POST', { adminUserId, ...data })
-}
-function adjustStock(adminUserId, skuId, data) {
-  if (app.globalData.demoMode) return Promise.resolve({ id: skuId, stockQuantity: 100 })
-  return api(`/api/admin/skus/${skuId}/stock`, 'PATCH', { adminUserId, ...data })
-}
-function createEnrollment(adminUserId, childId, classId) {
-  if (app.globalData.demoMode) return Promise.resolve({ childId, classId, status: 'ACTIVE' })
-  return api('/api/admin/enrollments', 'POST', { adminUserId, childId, classId })
-}
+function createProduct(adminUserId, payload) { return request('/api/admin/products', 'POST', payload, adminUserId) }
+function adjustStock(adminUserId, skuId, payload) { return request(`/api/admin/skus/${skuId}/stock`, 'POST', payload, adminUserId) }
+function adminOrders(adminUserId) { return request('/api/admin/orders', 'GET', undefined, adminUserId) }
+function updateOrderStatus(adminUserId, orderId, status, trackingNo) { return request(`/api/admin/orders/${orderId}`, 'PATCH', { status, trackingNo }, adminUserId) }
+function adminChildren(adminUserId) { return request('/api/admin/children', 'GET', undefined, adminUserId) }
+function createChild(adminUserId, payload) { return request('/api/admin/children', 'POST', payload, adminUserId) }
+function adjustLessons(adminUserId, childId, payload) { return request(`/api/admin/children/${childId}/lessons`, 'POST', payload, adminUserId) }
+function adminLessonLedger(adminUserId, childId) { return request(`/api/admin/children/${childId}/lesson-ledger`, 'GET', undefined, adminUserId) }
+function adminTrialAppointments(adminUserId, status) { return request(`/api/admin/trial-appointments${status ? `?status=${encodeURIComponent(status)}` : ''}`, 'GET', undefined, adminUserId) }
+function updateTrialAppointment(adminUserId, appointmentId, payload) { return request(`/api/admin/trial-appointments/${appointmentId}`, 'PATCH', payload, adminUserId) }
+function createParent(adminUserId, payload) { return request('/api/admin/parents', 'POST', payload, adminUserId) }
+function bindGuardian(adminUserId, childId, parentUserId, relationship) { return request('/api/admin/guardians', 'POST', { childId, parentUserId, relationship }, adminUserId) }
+function adminClasses(adminUserId) { return request('/api/admin/classes', 'GET', undefined, adminUserId) }
+function createClass(adminUserId, payload) { return request('/api/admin/classes', 'POST', payload, adminUserId) }
+function createSession(adminUserId, classId, payload) { return request(`/api/admin/classes/${classId}/sessions`, 'POST', payload, adminUserId) }
+function createEnrollment(adminUserId, childId, classId) { return request('/api/admin/enrollments', 'POST', { childId, classId }, adminUserId) }
+function adminLeaveRequests(adminUserId, status) { return request(`/api/admin/leave-requests${status ? `?status=${status}` : ''}`, 'GET', undefined, adminUserId) }
+function reviewLeaveRequest(adminUserId, requestId, status, reviewNote) { return request(`/api/admin/leave-requests/${requestId}`, 'PATCH', { status, reviewNote }, adminUserId) }
+function adminAnnouncements(adminUserId) { return request('/api/admin/announcements', 'GET', undefined, adminUserId) }
+function createAnnouncement(adminUserId, payload) { return request('/api/admin/announcements', 'POST', payload, adminUserId) }
+function updateAnnouncement(adminUserId, announcementId, patch) { return request(`/api/admin/announcements/${announcementId}`, 'PATCH', patch, adminUserId) }
 
-function adminOverview(adminUserId) {
-  if (app.globalData.demoMode) return Promise.resolve({ children: 3, activeClasses: 1, scheduledSessions: 2, pendingOrders: 0 })
-  return api(`/api/admin/overview?adminUserId=${adminUserId}`)
+module.exports = {
+  request, devContext, recordEvent, mediaUrl,
+  authMe, switchRole, bindWechatPhone,
+  updateProfile, uploadProfileAvatar,
+  bootstrap, courses, products, artworks, announcements, createTrialAppointment,
+  userDashboard, userOrders, userTrialAppointments, lessonLedger, orderStatus, createOrder, mockPay, wechatPay, confirmReceipt, cancelOrder,
+  addresses, createAddress, updateAddress, deleteAddress,
+  leaveRequests, createLeaveRequest, userFeedback,
+  teacherSessions, attendance, confirmAttendance, submitSessionFeedback,
+  adminOverview, adminAnalytics,
+  adminCourses, createCourse,
+  adminProducts, createProduct, adjustStock,
+  adminOrders, updateOrderStatus,
+  adminChildren, createChild, adjustLessons, adminLessonLedger, adminTrialAppointments, updateTrialAppointment, createParent, bindGuardian,
+  adminClasses, createClass, createSession, createEnrollment,
+  adminLeaveRequests, reviewLeaveRequest,
+  adminAnnouncements, createAnnouncement, updateAnnouncement
 }
-function adminChildren(adminUserId) {
-  if (app.globalData.demoMode) return Promise.resolve(mockState.students.map((student, index) => ({ id: index + 1, name: student.name, remaining_lessons: student.remaining, active_enrollments: 1 })))
-  return api(`/api/admin/children?adminUserId=${adminUserId}`)
-}
-function adminClasses(adminUserId) {
-  if (app.globalData.demoMode) return Promise.resolve([{ id: 1, name: '创意美术启蒙班 · 周六班', course_name: '创意美术启蒙班', teacher_name: '王老师', enrolled_count: 3, capacity: 12, campus: 'A校区', room: '201' }])
-  return api(`/api/admin/classes?adminUserId=${adminUserId}`)
-}
-
-module.exports = { mockState, request, devContext, courses, products, parentDashboard, teacherSessions, attendance, confirmAttendance, createOrder, addresses, createAddress, userOrders, createChild, adjustLessons, adminOrders, updateOrderStatus, adminCourses, createCourse, createClass, createSession, createParent, bindGuardian, adminProducts, createProduct, adjustStock, createEnrollment, adminOverview, adminChildren, adminClasses }

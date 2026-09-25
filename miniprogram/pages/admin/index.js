@@ -1,4 +1,5 @@
-const { devContext, adminOverview, adminChildren, adminClasses } = require('../../services/api')
+const { adminOverview, adminChildren, adminClasses } = require('../../services/api')
+const app = getApp()
 
 Page({
   data: {
@@ -16,11 +17,12 @@ Page({
   async loadData(withRefresh) {
     this.setData({ loading: true })
     try {
-      const context = await devContext()
+      const staff = await app.ensureStaff()
+      if (!staff) throw new Error('当前账号没有后台身份')
       const [overview, children, classes] = await Promise.all([
-        adminOverview(context.adminUserId),
-        adminChildren(context.adminUserId),
-        adminClasses(context.adminUserId)
+        adminOverview(),
+        adminChildren(),
+        adminClasses()
       ])
       this.setData({
         overview,
@@ -38,5 +40,8 @@ Page({
   openStudent(e) {
     const student = e.currentTarget.dataset.student
     wx.showModal({ title: student.name, content: `剩余 ${student.remaining_lessons} 次课时`, showCancel: false })
+  },
+  openLeaves() {
+    wx.navigateTo({ url: '/pages/admin-leaves/index' })
   }
 })

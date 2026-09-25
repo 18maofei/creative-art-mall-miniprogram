@@ -1,0 +1,18 @@
+.section { padding:20rpx 28rpx; }
+.section-title { display:block; margin-bottom:14rpx; color:#20332d; font-size:29rpx; font-weight:700; }
+.choice { margin-bottom:12rpx; padding:20rpx 24rpx; border:1rpx solid #e3ebe7; border-radius:12rpx; background:#fff; color:#33443e; font-size:25rpx; }
+.choice.active { border-color:#24664f; background:#e7f4ee; color:#24664f; }
+.card { padding:24rpx; border:1rpx solid #e3ebe7; border-radius:12rpx; background:#fff; }
+.form { display:flex; flex-direction:column; gap:16rpx; }
+.form textarea { width:100%; height:150rpx; padding:16rpx; box-sizing:border-box; border:1rpx solid #dfe7e3; border-radius:8rpx; font-size:25rpx; }
+.primary-btn { width:100%; border:none; border-radius:999rpx; background:#24664f; color:#fff; font-size:27rpx; }
+.request { display:flex; flex-direction:column; gap:8rpx; margin-bottom:14rpx; }
+.request-head { display:flex; justify-content:space-between; align-items:center; }
+.request-title { font-size:26rpx; font-weight:600; }
+.muted { color:#788781; font-size:22rpx; }
+.status { font-size:21rpx; }
+.status-PENDING { color:#a05216; }
+.status-APPROVED { color:#24664f; }
+.status-REJECTED, .status-CANCELLED { color:#9a4b4b; }
+.empty { padding:30rpx 0; color:#87948f; font-size:23rpx; text-align:center; }
+@import "../../styles/customer.wxss";

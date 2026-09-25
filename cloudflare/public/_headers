@@ -1,0 +1,14 @@
+# 静态管理台由 Workers Assets 直接响应，不会经过 src/index.js 的 withCors。
+# 这些响应头因此必须在 Assets 层声明，避免页面安全策略只覆盖 API。
+/admin/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: SAMEORIGIN
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'
+
+/admin/live.js
+  Cache-Control: no-cache, must-revalidate
+
+/admin/index.html
+  Cache-Control: no-cache, must-revalidate

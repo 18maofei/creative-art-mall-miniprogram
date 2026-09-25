@@ -1,22 +1,70 @@
-const { mockState, devContext, teacherSessions, attendance, confirmAttendance } = require('../../services/api')
+const { teacherSessions, attendance, confirmAttendance, submitSessionFeedback, announcements, recordEvent } = require('../../services/api')
+const app = getApp()
+
 Page({
-  data: { students: mockState.students, locked: false, sessionId: 1, teacherUserId: null },
-  onLoad() {
-    devContext().then(context => teacherSessions(context).then(sessions => ({ context, sessions }))).then(({ context, sessions }) => {
-      const sessionId = sessions[0]?.id
-      if (!sessionId) throw new Error('暂无课程')
-      return attendance(sessionId).then(rows => ({ context, sessionId, rows }))
-    }).then(({ context, sessionId, rows }) => {
-      const students = rows.map(item => item.child_id ? ({ id: item.child_id, name: item.name, initial: item.name.slice(0, 1), state: item.status === 'PRESENT' ? '出勤' : item.status === 'LEAVE' ? '请假' : '缺勤', remaining: Number(item.remaining_lessons) }) : item)
-      this.setData({ students, sessionId, teacherUserId: context.teacherUserId })
-    }).catch(() => wx.showToast({ title: '考勤加载失败', icon: 'none' }))
+  data: { students: [], sessions: [], currentSession: null, locked: false, sessionId: null, notices: [], showFeedback: false, feedbackContent: '', feedbackHomework: '' },
+  onShow() {
+    recordEvent('page_view', 'teacher_dashboard', 'TEACHER')
+    this.loadData()
   },
-  toggle(e) { if (this.data.locked) return; const { index, state } = e.currentTarget.dataset; const students = this.data.students.map((s, i) => i === Number(index) ? { ...s, state } : s); this.setData({ students }) },
-  confirm() {
-    const records = this.data.students.map(s => ({ childId: s.id, status: s.state === '出勤' ? 'PRESENT' : s.state === '请假' ? 'LEAVE' : 'ABSENT' }))
-    confirmAttendance(this.data.sessionId, this.data.teacherUserId, records).then(result => {
+  async loadData() {
+    const teacherUserId = await app.ensureUser('TEACHER')
+    this.teacherUserId = teacherUserId
+    if (!teacherUserId) return wx.showToast({ title: '登录失败或无教师身份', icon: 'none' })
+    try {
+      const [sessions, notices] = await Promise.all([
+        teacherSessions(teacherUserId),
+        announcements('TEACHER').catch(() => [])
+      ])
+      // 优先取最近一节未结束课程作为当前课次
+      const current = sessions.find(item => item.status === 'SCHEDULED') || sessions[0] || null
+      const sessionId = current && current.id
+      const students = sessionId ? await attendance(sessionId) : []
+      this.setData({
+        sessions,
+        currentSession: current,
+        sessionId,
+        notices: notices.slice(0, 2),
+        students: students.map(item => ({ ...item, initial: String(item.name || '').slice(0, 1) }))
+      })
+    } catch (error) { wx.showToast({ title: '教师数据加载失败', icon: 'none' }) }
+  },
+  choose(e) {
+    const index = e.currentTarget.dataset.index
+    const status = e.currentTarget.dataset.status
+    const students = this.data.students.slice()
+    students[index].status = status
+    this.setData({ students })
+  },
+  async submit() {
+    if (!this.data.sessionId) return wx.showToast({ title: '暂无待考勤课程', icon: 'none' })
+    try {
+      await confirmAttendance(this.data.sessionId, this.data.students.map(item => ({ studentId: item.student_id, status: item.status })))
       this.setData({ locked: true })
-      wx.showModal({ title: '考勤已确认', content: `${result.records.length} 位出勤学员已扣减 1 次课时；请假学员未扣课。`, showCancel: false })
-    }).catch(() => wx.showToast({ title: '确认失败，请稍后重试', icon: 'none' }))
-  }
+      wx.showToast({ title: '考勤已确认，已扣减出勤课时', icon: 'none' })
+      this.loadData()
+    } catch (error) { wx.showToast({ title: error.message || '考勤提交失败', icon: 'none' }) }
+  },
+  openFeedback() {
+    if (!this.data.sessionId) return wx.showToast({ title: '暂无课次', icon: 'none' })
+    this.setData({ showFeedback: true })
+  },
+  closeFeedback() { this.setData({ showFeedback: false }) },
+  onFeedbackInput(e) { this.setData({ [e.currentTarget.dataset.field]: e.detail.value }) },
+  async sendFeedback() {
+    if (!this.data.feedbackContent.trim()) return wx.showToast({ title: '请填写反馈内容', icon: 'none' })
+    try {
+      await submitSessionFeedback(this.data.sessionId, {
+        teacherUserId: this.teacherUserId,
+        content: this.data.feedbackContent,
+        homework: this.data.feedbackHomework || null
+      })
+      this.setData({ showFeedback: false, feedbackContent: '', feedbackHomework: '' })
+      wx.showToast({ title: '反馈已发布', icon: 'success' })
+    } catch (error) { wx.showToast({ title: error.message || '发布失败', icon: 'none' }) }
+  },
+  goSchedule() { wx.navigateTo({ url: '/pages/class-schedule/index?role=TEACHER' }) },
+  goProfile() { wx.switchTab({ url: '/pages/profile/index' }) },
+  goShop() { wx.switchTab({ url: '/pages/shop/index' }) },
+  goHome() { wx.reLaunch({ url: '/pages/teacher/index' }) }
 })

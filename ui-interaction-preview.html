@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>拾色画室 UI 与交互预览</title>
+  <style>
+    :root { --ink:#1e2c27; --muted:#708078; --line:#dfe9e4; --page:#eef4f1; --panel:#fff; --green:#16785c; --green-soft:#e5f4ed; --blue:#3e78d6; --blue-soft:#e8f1ff; --purple:#7a61d9; --purple-soft:#eeeaff; --orange:#ce7821; --orange-soft:#fff0dd; --red:#c6525e; --shadow:0 12px 30px rgba(36,72,58,.08); }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:var(--page); font:14px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; }
+    button, input, textarea, select { font:inherit; }
+    button { border:0; cursor:pointer; }
+    button:focus-visible, input:focus, textarea:focus, select:focus { outline:2px solid #8fcbb6; outline-offset:2px; }
+    .topbar { position:sticky; top:0; z-index:5; display:flex; align-items:center; justify-content:space-between; gap:18px; padding:15px 24px; background:rgba(255,255,255,.92); border-bottom:1px solid var(--line); backdrop-filter:blur(14px); }
+    .brand { display:flex; align-items:center; gap:11px; }
+    .brand-mark { display:grid; place-items:center; width:38px; height:38px; border-radius:11px; background:linear-gradient(135deg,#173c32,#2b9b76); color:#fff; font-size:19px; font-weight:800; box-shadow:0 4px 10px rgba(22,120,92,.18); }
+    .brand strong { display:block; font-size:16px; }
+    .brand small { display:block; color:var(--muted); font-size:11px; }
+    .mode-switch { display:flex; gap:4px; padding:4px; border:1px solid var(--line); border-radius:10px; background:#f4f8f6; }
+    .mode-switch button { padding:8px 15px; border-radius:7px; color:#6d7c75; background:transparent; }
+    .mode-switch button.active { color:var(--green); background:#fff; box-shadow:0 2px 7px rgba(30,69,54,.1); font-weight:700; }
+    .preview-note { max-width:1280px; margin:16px auto 0; padding:0 22px; color:var(--muted); font-size:12px; }
+    .screen { display:none; max-width:1280px; margin:0 auto; padding:16px 22px 42px; }
+    .screen.active { display:block; }
+
+    /* 小程序端预览 */
+    .mini-stage { display:flex; justify-content:center; }
+    .phone { width:min(430px,100%); min-height:750px; overflow:hidden; border:1px solid #dce7e1; border-radius:25px; background:#f7faf8; box-shadow:var(--shadow); }
+    .phone-head { padding:17px 19px 13px; border-bottom:1px solid var(--line); background:#fff; }
+    .phone-head b { font-size:17px; }
+    .phone-head small { display:block; margin-top:2px; color:var(--muted); font-size:11px; }
+    .mini-view { min-height:630px; padding:16px 15px 74px; }
+    .mini-hero { padding:26px 20px; border-radius:13px; background:#dfeee7; }
+    .mini-hero .eyebrow { color:#497466; font-size:12px; }
+    .mini-hero h1 { margin:7px 0; font-size:27px; line-height:1.25; }
+    .mini-hero p { margin:0; color:#58756b; }
+    .mini-section { margin-top:17px; }
+    .mini-section-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; }
+    .mini-section-head h2, .mini-view > h2 { margin:0; font-size:17px; }
+    .mini-link { padding:0; color:var(--green); background:transparent; font-size:12px; }
+    .mini-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:9px; }
+    .mini-tile { padding:15px 10px; border:1px solid var(--line); border-radius:10px; background:#fff; color:#40534b; text-align:center; }
+    .mini-tile b { display:block; margin-top:7px; font-size:13px; }
+    .mini-icon { display:grid; place-items:center; width:36px; height:36px; margin:0 auto; border-radius:50%; color:#fff; font-weight:700; }
+    .mini-icon.green { background:#42a57f; } .mini-icon.blue { background:#5487c8; } .mini-icon.purple { background:#8c70d2; } .mini-icon.orange { background:#d58a43; }
+    .mini-card { padding:14px; border:1px solid var(--line); border-radius:10px; background:#fff; }
+    .mini-card + .mini-card { margin-top:9px; }
+    .mini-card h3 { margin:0; font-size:15px; }
+    .mini-card p { margin:6px 0; color:var(--muted); font-size:12px; }
+    .mini-row { display:flex; align-items:center; justify-content:space-between; gap:9px; }
+    .mini-price { color:var(--green); font-size:17px; font-weight:700; }
+    .mini-button { padding:9px 13px; border-radius:7px; color:#fff; background:var(--green); font-size:12px; font-weight:700; }
+    .mini-button.outline { color:var(--green); border:1px solid #a8d1c0; background:#fff; }
+    .mini-button.full { width:100%; }
+    .mini-tabs { display:flex; gap:7px; margin:12px 0; overflow:auto; }
+    .mini-tabs button { flex:0 0 auto; padding:7px 11px; border:1px solid var(--line); border-radius:16px; color:#68776f; background:#fff; font-size:12px; }
+    .mini-tabs button.active { color:var(--green); border-color:#96cdb7; background:var(--green-soft); font-weight:700; }
+    .mini-banner { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:15px; border-radius:10px; background:#203f35; color:#fff; }
+    .mini-banner b { display:block; font-size:15px; } .mini-banner small { display:block; margin-top:3px; color:#cde5da; }
+    .mini-bottom-nav { position:relative; display:grid; grid-template-columns:repeat(4,1fr); padding:10px 4px 8px; border-top:1px solid var(--line); background:#fff; }
+    .mini-bottom-nav button { padding:4px 2px; color:#7a8982; background:transparent; font-size:11px; }
+    .mini-bottom-nav button.active { color:var(--green); font-weight:700; }
+    .mini-empty { padding:32px 10px; color:var(--muted); text-align:center; }
+    .mini-notice { margin-bottom:10px; padding:9px 10px; border-radius:7px; color:#8a5a20; background:var(--orange-soft); font-size:12px; }
+    .art-thumb, .gallery-large { border-radius:8px; background:linear-gradient(135deg,#e8b37c 0 38%,#80b99d 39% 68%,#d97670 69%); }
+    .art-thumb { height:92px; } .art-two { background:linear-gradient(135deg,#76afa3 0 42%,#efd48d 43% 67%,#d98d9c 68%); }
+    .gallery-large { height:190px; margin-bottom:12px; background:linear-gradient(140deg,#f0c49a 0 26%,#8dc6ad 27% 49%,#6f92c9 50% 72%,#dd8c8c 73%); }
+
+    /* Web 管理端预览 */
+    .web-shell { display:grid; grid-template-columns:230px minmax(0,1fr); min-height:720px; overflow:hidden; border:1px solid var(--line); border-radius:16px; background:#f4f8f6; box-shadow:var(--shadow); }
+    .web-sidebar { display:flex; flex-direction:column; gap:17px; padding:18px 11px; border-right:1px solid var(--line); background:#fff; transition:.2s; }
+    .web-sidebar.collapsed { width:68px; }
+    .web-brand { display:flex; align-items:center; gap:10px; padding:0 7px 9px; }
+    .web-brand-mark { display:grid; place-items:center; width:34px; height:34px; border-radius:9px; color:#fff; background:#1b8968; font-weight:800; }
+    .web-brand-copy b { display:block; font-size:15px; } .web-brand-copy small { display:block; color:var(--muted); font-size:10px; }
+    .web-sidebar.collapsed .web-brand-copy, .web-sidebar.collapsed .nav-label, .web-sidebar.collapsed .sidebar-foot em { display:none; }
+    .web-nav { display:flex; flex-direction:column; gap:3px; }
+    .web-nav button { display:flex; align-items:center; gap:10px; width:100%; padding:10px; border-radius:8px; color:#65746d; background:transparent; text-align:left; }
+    .web-nav button.active { color:var(--green); background:var(--green-soft); font-weight:700; }
+    .web-nav button span { width:18px; text-align:center; }
+    .web-sidebar.collapsed .web-nav button { justify-content:center; padding-left:0; padding-right:0; }
+    .sidebar-foot { display:flex; flex-direction:column; gap:4px; margin-top:auto; padding-top:10px; border-top:1px solid var(--line); }
+    .sidebar-foot button { padding:9px; color:#65746d; background:transparent; text-align:left; }
+    .web-main { min-width:0; background:#f4f8f6; }
+    .web-header { display:flex; align-items:center; justify-content:space-between; gap:15px; min-height:70px; padding:0 25px; border-bottom:1px solid var(--line); background:rgba(255,255,255,.9); }
+    .web-header h1 { margin:0; font-size:19px; } .web-header p { margin:3px 0 0; color:var(--muted); font-size:11px; }
+    .web-header-actions { display:flex; align-items:center; gap:10px; }
+    .web-avatar { display:grid; place-items:center; width:30px; height:30px; border-radius:50%; color:#fff; background:#258b6b; font-size:12px; font-weight:700; }
+    .web-user small { display:block; color:var(--muted); font-size:10px; } .web-user b { display:block; font-size:12px; }
+    .web-icon-button { padding:7px; color:#64736c; background:transparent; }
+    .web-content { padding:24px 25px 35px; }
+    .web-page-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:15px; }
+    .web-page-head h2 { margin:0; font-size:18px; } .web-page-head p { margin:3px 0 0; color:var(--muted); font-size:11px; }
+    .web-primary, .web-secondary { padding:9px 12px; border-radius:7px; font-size:12px; font-weight:700; }
+    .web-primary { color:#fff; background:var(--green); } .web-secondary { color:#54645c; border:1px solid var(--line); background:#fff; }
+    .web-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+    .stat { display:flex; gap:10px; padding:15px; border:1px solid #e9f0ec; border-radius:11px; background:#fff; }
+    .stat-icon { display:grid; place-items:center; width:36px; height:36px; border-radius:9px; color:var(--blue); background:var(--blue-soft); font-size:17px; font-weight:700; }
+    .stat:nth-child(2) .stat-icon { color:var(--green); background:var(--green-soft); } .stat:nth-child(3) .stat-icon { color:var(--purple); background:var(--purple-soft); } .stat:nth-child(4) .stat-icon { color:var(--orange); background:var(--orange-soft); }
+    .stat small { display:block; color:var(--muted); font-size:11px; } .stat strong { display:block; margin:1px 0; font-size:22px; }
+    .web-panels { display:grid; grid-template-columns:1.2fr .8fr; gap:14px; margin-top:14px; }
+    .web-panel { padding:16px; border:1px solid #e9f0ec; border-radius:11px; background:#fff; }
+    .web-panel h3 { margin:0; font-size:14px; } .web-panel > small { color:var(--muted); font-size:11px; }
+    .chart { display:flex; align-items:end; gap:9px; height:170px; margin-top:15px; padding:10px 3px 0; border-bottom:1px solid var(--line); }
+    .bar-wrap { display:flex; flex:1; flex-direction:column; align-items:center; gap:6px; height:100%; justify-content:end; }
+    .bar { width:100%; max-width:28px; min-height:8px; border-radius:5px 5px 0 0; background:#6bb89a; }
+    .bar-wrap small { color:var(--muted); font-size:10px; }
+    .role-row { display:grid; grid-template-columns:9px 1fr auto; gap:8px; align-items:center; padding:10px 0; border-bottom:1px solid #eef3f0; font-size:12px; }
+    .role-row:last-child { border-bottom:0; } .role-dot { width:8px; height:8px; border-radius:50%; }
+    .quick-actions { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:13px; }
+    .quick-actions button { min-height:72px; padding:10px; border-radius:8px; color:#52635a; background:#f3f8f5; text-align:left; }
+    .quick-actions button:hover { background:var(--green-soft); } .quick-actions b { display:block; margin-top:5px; font-size:12px; } .quick-actions small { color:var(--muted); font-size:10px; }
+    .web-toolbar { display:flex; align-items:center; gap:8px; margin-bottom:12px; padding:10px; border:1px solid #e9f0ec; border-radius:10px; background:#fff; }
+    .web-search { flex:1; min-width:160px; padding:9px 10px; border:1px solid var(--line); border-radius:7px; }
+    .web-table-wrap { overflow:auto; border:1px solid #e9f0ec; border-radius:10px; background:#fff; }
+    .web-table { width:100%; min-width:650px; border-collapse:collapse; }
+    .web-table th { padding:11px 13px; color:#74837b; background:#fbfdfc; font-size:11px; font-weight:600; text-align:left; white-space:nowrap; }
+    .web-table td { padding:12px 13px; border-top:1px solid #edf2ef; font-size:12px; white-space:nowrap; }
+    .table-actions { display:flex; gap:7px; } .table-action { padding:2px 0; color:var(--green); background:transparent; font-size:11px; }
+    .tag { display:inline-block; padding:3px 7px; border-radius:12px; color:#68766f; background:#eef3f0; font-size:10px; }
+    .tag.green { color:#177b5a; background:#e2f5eb; } .tag.orange { color:#a96117; background:#fff0d9; } .tag.red { color:#b24a57; background:#ffe8eb; } .tag.blue { color:#3a70be; background:#e8f1ff; }
+    .web-empty { padding:35px; color:var(--muted); text-align:center; }
+
+    .modal-layer { position:fixed; inset:0; z-index:20; display:none; place-items:center; padding:18px; background:rgba(20,39,31,.38); }
+    .modal-layer.show { display:grid; }
+    .modal-card { width:min(470px,100%); max-height:calc(100vh - 36px); overflow:auto; border-radius:13px; background:#fff; box-shadow:0 18px 50px rgba(18,40,31,.23); }
+    .modal-head { display:flex; align-items:center; justify-content:space-between; padding:15px 18px; border-bottom:1px solid var(--line); } .modal-head h3 { margin:0; font-size:16px; }
+    .close-button { padding:2px 7px; color:#74817b; background:transparent; font-size:20px; }
+    .modal-body { padding:17px 18px; } .modal-body p { color:var(--muted); font-size:12px; }
+    .field { margin-bottom:12px; } .field label { display:block; margin-bottom:6px; color:#53635b; font-size:11px; } .field input, .field textarea, .field select { width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:7px; background:#fff; } .field textarea { min-height:76px; resize:vertical; }
+    .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:17px; }
+    .toast { position:fixed; left:50%; bottom:25px; z-index:30; padding:10px 14px; border-radius:8px; color:#fff; background:#213a31; opacity:0; transform:translate(-50%,16px); pointer-events:none; transition:.2s; }
+    .toast.show { opacity:1; transform:translate(-50%,0); }
+    body.dark-preview { --ink:#e7efeb; --muted:#9aaca3; --line:#2b3a33; --page:#0f1713; --panel:#17231d; --green-soft:rgba(35,161,120,.16); }
+    body.dark-preview .web-shell, body.dark-preview .web-main { background:#101914; } body.dark-preview .web-sidebar, body.dark-preview .web-header, body.dark-preview .web-panel, body.dark-preview .stat, body.dark-preview .web-table-wrap, body.dark-preview .web-toolbar, body.dark-preview .web-secondary { background:#17231d; border-color:var(--line); }
+    body.dark-preview .web-header { background:rgba(23,35,29,.9); } body.dark-preview .web-table th { color:#9aacA3; background:#142019; } body.dark-preview .web-table td, body.dark-preview .role-row { border-color:#26352e; } body.dark-preview .quick-actions button { color:#c2d0c8; background:#1d2c24; } body.dark-preview .web-search, body.dark-preview .field input, body.dark-preview .field textarea, body.dark-preview .field select { color:var(--ink); background:#101914; border-color:var(--line); }
+    @media (max-width:900px) { .web-shell { grid-template-columns:68px minmax(0,1fr); } .web-sidebar { width:68px; padding-left:8px; padding-right:8px; } .web-brand-copy, .nav-label, .sidebar-foot em { display:none; } .web-nav button { justify-content:center; padding-left:0; padding-right:0; } .web-stats { grid-template-columns:repeat(2,1fr); } .web-panels { grid-template-columns:1fr; } }
+    @media (max-width:600px) { .topbar { align-items:flex-start; flex-direction:column; padding:13px 15px; } .mode-switch { width:100%; } .mode-switch button { flex:1; } .screen { padding:10px 10px 28px; } .phone { border-radius:18px; } .web-header { padding:0 14px; } .web-content { padding:17px 13px 28px; } .web-header-actions .web-user { display:none; } .web-stats { gap:8px; } .stat { padding:11px; } .stat strong { font-size:19px; } .quick-actions { grid-template-columns:repeat(2,1fr); } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><div class="brand-mark">拾</div><div><strong>拾色画室</strong><small>小程序与 Web UI 交互预览</small></div></div>
+    <div class="mode-switch" role="tablist" aria-label="预览端选择"><button id="miniModeButton" class="active" role="tab" aria-selected="true" onclick="setMode('mini')">小程序端</button><button id="webModeButton" role="tab" aria-selected="false" onclick="setMode('web')">Web 管理端</button></div>
+  </header>
+  <p class="preview-note">离线演示文件：页面使用本地演示数据，不调用后端接口。小程序真机/开发者工具请打开项目目录，Web 生产页面请使用 Cloudflare Worker 部署后的地址。</p>
+
+  <main id="miniScreen" class="screen active" aria-label="小程序端预览">
+    <div class="mini-stage"><section class="phone"><header class="phone-head"><b>拾色画室</b><small>少儿美术课程与成长服务</small></header><div id="miniView" class="mini-view"></div><nav id="miniNav" class="mini-bottom-nav" aria-label="小程序底部导航"></nav></section></div>
+  </main>
+
+  <main id="webScreen" class="screen" aria-label="Web 管理端预览">
+    <div class="web-shell"><aside id="webSidebar" class="web-sidebar"><div class="web-brand"><div class="web-brand-mark">拾</div><div class="web-brand-copy"><b>拾色画室</b><small>运营管理台 v1.0</small></div></div><nav id="webNav" class="web-nav" aria-label="后台菜单"></nav><div class="sidebar-foot"><button onclick="toggleWebDark()"><span>◐</span> <em>深色模式</em></button><button onclick="toggleWebCollapse()"><span>«</span> <em>收起菜单</em></button></div></aside><section class="web-main"><header class="web-header"><div><h1 id="webHeaderTitle">运营仪表盘</h1><p id="webHeaderDesc">全局运营概览与访问趋势</p></div><div class="web-header-actions"><button class="web-icon-button" title="通知" onclick="showToast('暂无未读系统通知')">♧</button><div class="web-avatar">管</div><div class="web-user"><b>演示管理员</b><small>拾色画室 · 运营后台</small></div><button class="web-secondary" onclick="showToast('当前为离线交互预览')">退出</button></div></header><div id="webContent" class="web-content"></div></section></div>
+  </main>
+
+  <div id="miniModal" class="modal-layer" aria-hidden="true"><section class="modal-card" role="dialog" aria-modal="true"><header class="modal-head"><h3 id="miniModalTitle"></h3><button class="close-button" onclick="closeMiniModal()" aria-label="关闭">×</button></header><div id="miniModalBody" class="modal-body"></div></section></div>
+  <div id="webModal" class="modal-layer" aria-hidden="true"><section class="modal-card" role="dialog" aria-modal="true"><header class="modal-head"><h3 id="webModalTitle"></h3><button class="close-button" onclick="closeWebModal()" aria-label="关闭">×</button></header><div id="webModalBody" class="modal-body"></div></section></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const $ = (selector) => document.querySelector(selector)
+    const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]))
+    const money = (value) => `¥${Number(value || 0).toLocaleString('zh-CN')}`
+    let toastTimer
+
+    const miniState = {
+      page: 'home', filter: 'ALL', cart: [], orders: [], address: null, leaveSubmitted: false,
+      courses: [
+        { id: 1, name: '创意美术启蒙班', category: 'INTRO', age: '6-8 岁', lessons: 12, price: 1680, desc: '从色彩、构图与手作开始，建立观察力和表达力。' },
+        { id: 2, name: '少儿创作进阶班', category: 'ADVANCED', age: '8-11 岁', lessons: 16, price: 2280, desc: '主题表达、材料探索与作品展示，适合已有基础的孩子。' },
+        { id: 3, name: '周末创意工坊', category: 'INTRO', age: '5-8 岁', lessons: 4, price: 680, desc: '周末主题创作活动，适合第一次体验画室课程。' }
+      ],
+      products: [{ id: 1, name: '儿童创作画材套装', price: 99, stock: 36 }, { id: 2, name: '画室原创帆布袋', price: 49, stock: 52 }]
+    }
+
+    // Web 端使用独立的演示数据，确保此文件脱离 API 也能展示完整交互。
+    const webState = {
+      page: 'dashboard', dark: false, collapsed: false, search: '',
+      users: [{ name: '李女士', role: '家长', status: '正常' }, { name: '王老师', role: '教师', status: '正常' }, { name: '陈同学', role: '学生', status: '正常' }],
+      children: [{ name: '乐乐', guardian: '李女士', classes: '创意美术启蒙班', lessons: 12 }, { name: '安安', guardian: '李女士', classes: '周末创意工坊', lessons: 6 }],
+      courses: [{ name: '创意美术启蒙班', category: '艺术启蒙', lessons: 12, price: 1680, status: '已发布' }, { name: '少儿创作进阶班', category: '创作进阶', lessons: 16, price: 2280, status: '草稿' }],
+      products: [{ name: '儿童创作画材套装', category: '画材工具', stock: 36, price: 99, status: '在售' }, { name: '画室原创帆布袋', category: '周边', stock: 52, price: 49, status: '在售' }],
+      schedule: [{ name: '周六启蒙班', course: '创意美术启蒙班', teacher: '王老师', status: '已发布' }, { name: '周日进阶班', course: '少儿创作进阶班', teacher: '待指定', status: '草稿' }],
+      resources: [{ name: '家长课堂须知', type: 'PDF', status: '已发布' }, { name: '秋季课程海报', type: '图片', status: '草稿' }],
+      orders: [{ no: 'ART20260827001', buyer: '李女士', content: '创意美术启蒙班', amount: 1680, status: '待支付' }, { no: 'ART20260826008', buyer: '赵先生', content: '画材套装 × 1', amount: 99, status: '已支付' }],
+      leaves: [{ child: '乐乐', course: '创意美术启蒙班', date: '2026-08-29 10:00', reason: '家庭安排', status: '待审批' }],
+      announcements: [{ title: '秋季课程排课通知', audience: '全部用户', status: '已发布', date: '2026-08-25' }]
+    }
+
+    const webPages = {
+      dashboard: ['运营仪表盘', '全局运营概览与访问趋势'], users: ['用户管理', '管理家长、学生、教师与访客用户'], children: ['学员管理', '学员档案、监护关系与课时账户'], courses: ['课程管理', '创建、发布和维护课程内容'], schedule: ['排课管理', '班级、课次发布与学员报名'], leaves: ['请假审批', '处理家长提交的请假申请'], products: ['商品管理', '管理周边商品、库存与上架状态'], resources: ['资源中心', '管理课件、宣传素材和业务文档'], orders: ['订单管理', '查看课程报名和周边订单'], reports: ['数据报表', '分析用户增长、访问和转化趋势'], announcements: ['公告管理', '发布面向用户和员工的运营通知'], settings: ['系统设置', '当前管理员账号与登录密码维护']
+    }
+    const webNavItems = [['dashboard','▦','仪表盘'],['users','♙','用户管理'],['children','☺','学员管理'],['courses','▣','课程管理'],['schedule','▥','排课管理'],['leaves','✈','请假审批'],['products','♧','商品管理'],['resources','▤','资源中心'],['orders','☷','订单管理'],['reports','◌','数据报表'],['announcements','♢','公告管理'],['settings','⚙','系统设置']]
+
+    function showToast(message) { const element = $('#toast'); element.textContent = message; element.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => element.classList.remove('show'), 2200) }
+    function setMode(mode) { const mini = mode === 'mini'; $('#miniScreen').classList.toggle('active', mini); $('#webScreen').classList.toggle('active', !mini); $('#miniModeButton').classList.toggle('active', mini); $('#webModeButton').classList.toggle('active', !mini); $('#miniModeButton').setAttribute('aria-selected', mini); $('#webModeButton').setAttribute('aria-selected', !mini); if (!mini) renderWeb() }
+
+    function renderMini() {
+      const view = $('#miniView'); const nav = [['home','首页'],['course','课程'],['shop','商城'],['profile','我的']]
+      $('#miniNav').innerHTML = nav.map(([id,label]) => `<button class="${miniState.page === id ? 'active' : ''}" onclick="setMiniPage('${id}')">${label}</button>`).join('')
+      if (miniState.page === 'home') view.innerHTML = `<section class="mini-hero"><span class="eyebrow">少儿美术</span><h1>看见孩子的创造力</h1><p>艺术启蒙、课程服务与成长陪伴</p><button class="mini-button" style="margin-top:16px" onclick="setMiniPage('course')">浏览课程</button></section><section class="mini-section"><div class="mini-section-head"><h2>快捷入口</h2></div><div class="mini-grid"><button class="mini-tile" onclick="setMiniPage('course')"><span class="mini-icon green">课</span><b>课程报名</b></button><button class="mini-tile" onclick="setMiniPage('shop')"><span class="mini-icon orange">购</span><b>周边商城</b></button><button class="mini-tile" onclick="setMiniPage('parent')"><span class="mini-icon blue">家</span><b>家长入口</b></button><button class="mini-tile" onclick="setMiniPage('profile')"><span class="mini-icon purple">我</span><b>我的服务</b></button></div></section><section class="mini-section"><div class="mini-section-head"><h2>课堂作品与教学花絮</h2><button class="mini-link" onclick="openMiniGallery('课堂作品与教学花絮')">查看全部</button></div><div class="mini-grid"><button class="mini-card" onclick="openMiniGallery('课堂作品')"><div class="art-thumb"></div><p>课堂作品</p></button><button class="mini-card" onclick="openMiniGallery('教学花絮')"><div class="art-thumb art-two"></div><p>教学花絮</p></button></div></section><section class="mini-section mini-banner" onclick="setMiniPage('course')"><div><b>预约一节体验课</b><small>了解孩子的创作潜能与适合课程</small></div><span>立即预约 ›</span></section>`
+      if (miniState.page === 'course') renderMiniCourses(view)
+      if (miniState.page === 'shop') renderMiniShop(view)
+      if (miniState.page === 'parent') renderMiniParent(view)
+      if (miniState.page === 'profile') renderMiniProfile(view)
+    }
+    function setMiniPage(page) { miniState.page = page; renderMini() }
+    function renderMiniCourses(view) { const filters = [['ALL','全部课程'],['INTRO','艺术启蒙'],['ADVANCED','创作进阶']]; const courses = miniState.filter === 'ALL' ? miniState.courses : miniState.courses.filter((course) => course.category === miniState.filter); view.innerHTML = `<h2>课程报名</h2><div class="mini-tabs">${filters.map(([id,label]) => `<button class="${miniState.filter === id ? 'active' : ''}" onclick="filterMiniCourses('${id}')">${label}</button>`).join('')}</div>${courses.map((course) => `<article class="mini-card"><div class="mini-row"><h3>${escapeHtml(course.name)}</h3><span class="mini-price">${money(course.price)}</span></div><p>${course.age} · ${course.lessons} 次课</p><p>${escapeHtml(course.desc)}</p><button class="mini-button" onclick="openMiniCourse(${course.id})">查看详情</button></article>`).join('') || '<div class="mini-empty">暂无符合条件的课程</div>'}` }
+    function filterMiniCourses(filter) { miniState.filter = filter; renderMini() }
+    function openMiniCourse(id) { const course = miniState.courses.find((item) => item.id === id); openMiniModal(course.name, `<p>${escapeHtml(course.desc)}</p><p><b>${course.age}</b> · ${course.lessons} 次课</p><p class="mini-price">${money(course.price)}</p><div class="modal-actions"><button class="mini-button outline" onclick="closeMiniModal()">稍后了解</button><button class="mini-button" onclick="showToast('报名咨询已提交'); closeMiniModal()">提交报名咨询</button></div>`) }
+    function renderMiniShop(view) { const address = miniState.address ? `<div class="mini-notice">收货地址：${escapeHtml(miniState.address.detail)}</div>` : '<div class="mini-notice">请先保存收货地址，再提交商品订单。</div>'; view.innerHTML = `<h2>周边商城</h2>${address}${miniState.products.map((product) => `<article class="mini-card"><div class="mini-row"><h3>${escapeHtml(product.name)}</h3><span class="mini-price">${money(product.price)}</span></div><p>库存 ${product.stock} 件 · 画室精选周边</p><button class="mini-button outline" onclick="addMiniCart(${product.id})">加入购物车</button></article>`).join('')}<section class="mini-card" style="margin-top:10px"><div class="mini-row"><b>购物车 ${miniState.cart.length} 件</b><span class="mini-price">${money(miniState.cart.reduce((sum,id) => sum + (miniState.products.find((p) => p.id === id)?.price || 0), 0))}</span></div><button class="mini-button full" style="margin-top:12px" onclick="checkoutMini()">提交订单</button></section>` }
+    function addMiniCart(id) { miniState.cart.push(id); showToast('已加入购物车'); renderMini() }
+    function checkoutMini() { if (!miniState.cart.length) return showToast('购物车为空'); if (!miniState.address) return openMiniAddress(); const total = miniState.cart.reduce((sum,id) => sum + (miniState.products.find((p) => p.id === id)?.price || 0), 0); miniState.orders.unshift({ no: `ART${Date.now()}`, total }); miniState.cart = []; miniState.page = 'profile'; showToast('订单已生成'); renderMini() }
+    function renderMiniParent(view) { view.innerHTML = `<h2>家长服务</h2><section class="mini-card"><div class="mini-row"><h3>乐乐 · 剩余 12 次课</h3><span class="tag green">正常</span></div><p>下一节：创意美术启蒙班 · 周六 10:00</p><div class="mini-row"><button class="mini-button outline" onclick="openMiniLeave()">提交请假</button><button class="mini-button" onclick="openMiniGallery('我的作品')">查看作品</button></div></section><section class="mini-card"><h3>本周课堂反馈</h3><p>孩子在色彩搭配和主题表达上持续进步，建议在家保持自由创作。</p></section>` }
+    function renderMiniProfile(view) { const orders = miniState.orders.length ? miniState.orders.map((order) => `<p>${order.no} · ${money(order.total)} · 待付款</p>`).join('') : '<p>暂无订单</p>'; view.innerHTML = `<h2>我的服务</h2><section class="mini-card"><div class="mini-row"><h3>收货地址</h3><button class="mini-button outline" onclick="openMiniAddress()">${miniState.address ? '编辑' : '新增'}</button></div><p>${miniState.address ? escapeHtml(miniState.address.detail) : '还没有保存收货地址'}</p></section><section class="mini-card"><h3>我的订单</h3>${orders}<button class="mini-button outline" onclick="setMiniPage('shop')">去商城</button></section><section class="mini-card"><h3>画室管理入口</h3><p>家长、教师和管理员功能在真实小程序中按权限进入。</p><button class="mini-button" onclick="showToast('请在身份页选择角色')">切换身份</button></section>` }
+    function openMiniAddress() { openMiniModal('收货地址', `<div class="field"><label>收货人</label><input id="miniReceiver" placeholder="请输入收货人"></div><div class="field"><label>联系电话</label><input id="miniPhone" placeholder="请输入联系电话"></div><div class="field"><label>详细地址</label><textarea id="miniDetail" placeholder="请输入详细地址">${escapeHtml(miniState.address?.detail || '')}</textarea></div><div class="modal-actions"><button class="mini-button" onclick="saveMiniAddress()">保存地址</button></div>`) }
+    function saveMiniAddress() { const detail = $('#miniDetail').value.trim(); if (!detail) return showToast('请填写详细地址'); miniState.address = { receiver: $('#miniReceiver').value.trim() || '演示用户', phone: $('#miniPhone').value.trim(), detail }; closeMiniModal(); showToast('地址已保存'); renderMini() }
+    function openMiniLeave() { openMiniModal('请假申请', `<p>当前课次：创意美术启蒙班 · 周六 10:00</p><div class="field"><label>请假原因</label><textarea id="miniLeaveReason" placeholder="请输入请假原因"></textarea></div><div class="modal-actions"><button class="mini-button" onclick="submitMiniLeave()">提交申请</button></div>`) }
+    function submitMiniLeave() { const reason = $('#miniLeaveReason').value.trim(); if (!reason) return showToast('请填写请假原因'); miniState.leaveSubmitted = true; closeMiniModal(); showToast('请假申请已提交') }
+    function openMiniGallery(title) { openMiniModal(title, `<div class="gallery-large"></div><p>这里展示孩子的课堂作品、教学花絮和成长记录。</p><button class="mini-button" onclick="closeMiniModal()">关闭</button>`) }
+    function openMiniModal(title, body) { $('#miniModalTitle').textContent = title; $('#miniModalBody').innerHTML = body; $('#miniModal').classList.add('show'); $('#miniModal').setAttribute('aria-hidden','false') }
+    function closeMiniModal() { $('#miniModal').classList.remove('show'); $('#miniModal').setAttribute('aria-hidden','true') }
+
+    function renderWeb() { document.body.classList.toggle('dark-preview', webState.dark); $('#webSidebar').classList.toggle('collapsed', webState.collapsed); $('#webNav').innerHTML = webNavItems.map(([id,icon,label]) => `<button class="${webState.page === id ? 'active' : ''}" onclick="setWebPage('${id}')"><span>${icon}</span><span class="nav-label">${label}</span></button>`).join(''); const [title,desc] = webPages[webState.page]; $('#webHeaderTitle').textContent = title; $('#webHeaderDesc').textContent = desc; renderWebContent() }
+    function setWebPage(page) { webState.page = page; webState.search = ''; renderWeb() }
+    function renderWebContent() { const content = $('#webContent'); if (webState.page === 'dashboard') return renderWebDashboard(content); if (webState.page === 'reports') return renderWebReports(content); if (webState.page === 'settings') return renderWebSettings(content); if (webState.page === 'leaves') return renderWebLeaves(content); if (webState.page === 'orders') return renderWebOrders(content); const collection = webState[webState.page]; if (Array.isArray(collection)) return renderWebTable(content, webState.page, collection); content.innerHTML = '<div class="web-empty">该模块将在真实后台连接 API 后显示数据。</div>' }
+    function renderWebDashboard(content) { content.innerHTML = `<div class="web-page-head"><div><h2>欢迎回来，演示管理员</h2><p>当前为离线交互预览，真实页面会读取 D1 实时数据。</p></div><button class="web-secondary" onclick="showToast('数据已刷新')">↻ 刷新数据</button></div><section class="web-stats"><div class="stat"><span class="stat-icon">◉</span><div><small>小程序用户</small><strong>128</strong><small>今日访问 36</small></div></div><div class="stat"><span class="stat-icon">♙</span><div><small>在读学生</small><strong>42</strong><small>已建立学生档案</small></div></div><div class="stat"><span class="stat-icon">▣</span><div><small>活跃教师</small><strong>8</strong><small>当前在职教师</small></div></div><div class="stat"><span class="stat-icon">▰</span><div><small>待支付订单</small><strong>6</strong><small>订单实时更新</small></div></div></section><section class="web-panels"><article class="web-panel"><h3>近 7 日访问趋势</h3><small>小程序访问事件实时统计</small><div class="chart">${[48,75,55,92,68,83,100].map((height,index) => `<div class="bar-wrap"><div class="bar" style="height:${height}%"></div><small>${['周一','周二','周三','周四','周五','周六','今天'][index]}</small></div>`).join('')}</div></article><article class="web-panel"><h3>用户身份访问分布</h3><small>按访问事件记录汇总</small><div style="margin-top:8px"><div class="role-row"><i class="role-dot" style="background:#16785c"></i><span>家长</span><b>68</b></div><div class="role-row"><i class="role-dot" style="background:#3e78d6"></i><span>教师</span><b>21</b></div><div class="role-row"><i class="role-dot" style="background:#7a61d9"></i><span>学生</span><b>27</b></div><div class="role-row"><i class="role-dot" style="background:#ce7821"></i><span>访客</span><b>12</b></div></div></article></section><section class="web-panel" style="margin-top:14px"><h3>快捷操作</h3><div class="quick-actions"><button onclick="openWebCreate('courses')">▣<b>发布课程</b><small>创建并发布新课程</small></button><button onclick="openWebCreate('products')">♧<b>发布商品</b><small>新增周边商品</small></button><button onclick="openWebCreate('announcements')">♢<b>发布公告</b><small>同步用户端通知</small></button><button onclick="setWebPage('reports')">◌<b>查看报表</b><small>分析访问和转化趋势</small></button></div></section>` }
+    function renderWebReports(content) { content.innerHTML = `<div class="web-page-head"><div><h2>数据报表</h2><p>按访问事件实时统计用户增长与访问趋势。</p></div><button class="web-secondary" onclick="showToast('演示报表已导出')">⇩ 导出报表</button></div><section class="web-panels"><article class="web-panel"><h3>用户访问趋势</h3><small>近 7 日每日访问量</small><div class="chart">${[34,46,52,61,73,69,88].map((height,index) => `<div class="bar-wrap"><div class="bar" style="height:${height}%"></div><small>${index + 1} 日</small></div>`).join('')}</div></article><article class="web-panel"><h3>关键转化</h3><div class="role-row"><span>课程详情点击</span><b>86</b></div><div class="role-row"><span>提交报名咨询</span><b>24</b></div><div class="role-row"><span>商品加购</span><b>31</b></div><div class="role-row"><span>订单生成</span><b>18</b></div></article></section>` }
+    function renderWebSettings(content) { content.innerHTML = `<div class="web-page-head"><div><h2>系统设置</h2><p>管理当前后台管理员账号与安全设置。</p></div></div><section class="web-panel" style="max-width:600px"><h3>修改登录密码</h3><p style="color:var(--muted);font-size:11px">演示模式不会提交真实请求，正式页面会通过 API 保存。</p><div class="field"><label>当前密码</label><input type="password" placeholder="请输入当前密码"></div><div class="field"><label>新密码</label><input type="password" placeholder="至少 12 位"></div><div class="field"><label>确认新密码</label><input type="password" placeholder="再次输入新密码"></div><button class="web-primary" onclick="showToast('演示：密码校验通过')">保存新密码</button></section>` }
+    function renderWebLeaves(content) { const list = webState.leaves.filter((row) => !webState.search || Object.values(row).join(' ').includes(webState.search)); content.innerHTML = `<div class="web-page-head"><div><h2>请假审批</h2><p>批准后会同步考勤，LEAVE 不扣课时。</p></div><button class="web-secondary" onclick="showToast('列表已刷新')">↻ 刷新</button></div><div class="web-toolbar"><input class="web-search" placeholder="搜索学员或课程" value="${escapeHtml(webState.search)}" oninput="webState.search=this.value; renderWebContent()"></div>${renderTableHtml(['学员','课程 / 课次','上课时间','申请理由','状态','操作'], list.map((row,index) => [row.child,row.course,row.date,row.reason,statusTag(row.status),row.status === '待审批' ? `<div class="table-actions"><button class="table-action" onclick="reviewWebLeave(${index},'已通过')">通过</button><button class="table-action" style="color:var(--red)" onclick="reviewWebLeave(${index},'已驳回')">驳回</button></div>` : '—']))}` }
+    function renderWebOrders(content) { const list = webState.orders.filter((row) => !webState.search || Object.values(row).join(' ').includes(webState.search)); content.innerHTML = `<div class="web-page-head"><div><h2>订单管理</h2><p>课程报名和周边订单状态实时同步。</p></div><button class="web-secondary" onclick="showToast('订单已刷新')">↻ 刷新</button></div><div class="web-toolbar"><input class="web-search" placeholder="搜索订单号、买家或内容" value="${escapeHtml(webState.search)}" oninput="webState.search=this.value; renderWebContent()"></div>${renderTableHtml(['订单号','用户','内容','金额','状态','操作'], list.map((row,index) => [row.no,row.buyer,row.content,money(row.amount),statusTag(row.status),orderAction(row,index)]))}` }
+    function orderAction(row,index) { if (row.status === '待支付') return `<button class="table-action" onclick="advanceWebOrder(${index})">确认支付</button>`; if (row.status === '已支付') return `<button class="table-action" onclick="advanceWebOrder(${index})">发货</button>`; if (row.status === '已发货') return `<button class="table-action" onclick="advanceWebOrder(${index})">标记完成</button>`; return '—' }
+    function advanceWebOrder(index) { const row = webState.orders[index]; row.status = ({'待支付':'已支付','已支付':'已发货','已发货':'已完成'})[row.status] || row.status; showToast(`订单状态：${row.status}`); renderWebContent() }
+    function renderWebTable(content, key, collection) { const labels = { users:['用户','身份','状态','操作'], children:['学员','监护人','在读班级','剩余课时'], courses:['课程','分类','课时 / 价格','状态','操作'], products:['商品','分类','库存','价格','状态','操作'], resources:['资源','类型','状态','操作'], schedule:['班级','课程','教师','状态','操作'], announcements:['标题','面向','状态','发布时间','操作'] }; const fields = labels[key] || ['名称','状态','操作']; const filtered = collection.filter((row) => !webState.search || Object.values(row).join(' ').includes(webState.search)); const rows = filtered.map((row,index) => { if (key === 'users') return [row.name,row.role,statusTag(row.status),'查看']; if (key === 'children') return [row.name,row.guardian,row.classes,`${row.lessons} 次`]; if (key === 'courses') return [row.name,row.category,`${row.lessons} 次 · ${money(row.price)}`,statusTag(row.status),`<button class="table-action" onclick="showToast('已打开课程编辑')">编辑</button>`]; if (key === 'products') return [row.name,row.category,row.stock,money(row.price),statusTag(row.status),`<button class="table-action" onclick="openWebCreate('products')">调整库存</button>`]; if (key === 'resources') return [row.name,row.type,statusTag(row.status),`<button class="table-action" onclick="showToast('已打开资源详情')">查看</button>`]; if (key === 'schedule') return [row.name,row.course,row.teacher,statusTag(row.status),`<button class="table-action" onclick="showToast('已打开排课详情')">排课</button>`]; if (key === 'announcements') return [row.title,row.audience,statusTag(row.status),row.date,`<button class="table-action" onclick="showToast('公告状态已切换')">下线</button>`]; return Object.values(row).map((value) => escapeHtml(value)); }); content.innerHTML = `<div class="web-page-head"><div><h2>${webPages[key][0]}</h2><p>${webPages[key][1]}</p></div><button class="web-primary" onclick="openWebCreate('${key}')">+ 新增</button></div><div class="web-toolbar"><input class="web-search" placeholder="搜索当前列表" value="${escapeHtml(webState.search)}" oninput="webState.search=this.value; renderWebContent()"><button class="web-secondary" onclick="showToast('列表已刷新')">刷新</button></div>${renderTableHtml(fields,rows)}` }
+    function renderTableHtml(headers, rows) { return `<div class="web-table-wrap"><table class="web-table"><thead><tr>${headers.map((header) => `<th>${header}</th>`).join('')}</tr></thead><tbody>${rows.length ? rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${headers.length}" class="web-empty">暂无数据</td></tr>`}</tbody></table></div>` }
+    function statusTag(status) { const cls = /已发布|在售|正常|已支付|已发货|已完成|已通过/.test(status) ? 'green' : /草稿|待支付|待审批/.test(status) ? 'orange' : /驳回|下架/.test(status) ? 'red' : 'blue'; return `<span class="tag ${cls}">${escapeHtml(status)}</span>` }
+    function openWebCreate(kind) { const title = { courses:'新增课程', products:'新增商品', announcements:'发布公告', resources:'上传资源' }[kind] || '新增内容'; let fields = ''; if (kind === 'courses') fields = `<div class="field"><label>课程名称</label><input name="name" required></div><div class="field"><label>课程分类</label><select name="category"><option>艺术启蒙</option><option>创作进阶</option></select></div><div class="field"><label>课时数</label><input name="lessons" type="number" value="12" required></div><div class="field"><label>价格</label><input name="price" type="number" value="1680" required></div>`; if (kind === 'products') fields = `<div class="field"><label>商品名称</label><input name="name" required></div><div class="field"><label>商品分类</label><input name="category" value="画材工具"></div><div class="field"><label>库存</label><input name="stock" type="number" value="0"></div><div class="field"><label>价格</label><input name="price" type="number" value="99"></div>`; if (kind === 'announcements') fields = `<div class="field"><label>公告标题</label><input name="title" required></div><div class="field"><label>面向人群</label><select name="audience"><option>全部用户</option><option>家长端</option><option>教师端</option></select></div><div class="field"><label>公告内容</label><textarea name="content" required></textarea></div>`; if (!fields) fields = `<div class="field"><label>内容名称</label><input name="name" required></div><div class="field"><label>说明</label><textarea name="description"></textarea></div>`; openWebModal(title, `<form id="webCreateForm" onsubmit="submitWebCreate(event,'${kind}')">${fields}<div class="modal-actions"><button type="button" class="web-secondary" onclick="closeWebModal()">取消</button><button class="web-primary">保存</button></div></form>`) }
+    function submitWebCreate(event, kind) { event.preventDefault(); const data = Object.fromEntries(new FormData(event.target)); if (kind === 'courses') webState.courses.unshift({ name:data.name, category:data.category, lessons:Number(data.lessons), price:Number(data.price), status:'草稿' }); else if (kind === 'products') webState.products.unshift({ name:data.name, category:data.category, stock:Number(data.stock), price:Number(data.price), status:'草稿' }); else if (kind === 'announcements') webState.announcements.unshift({ title:data.title, audience:data.audience, status:'草稿', date:'今天' }); closeWebModal(); showToast('内容已保存'); renderWebContent() }
+    function reviewWebLeave(index,status) { webState.leaves[index].status = status; showToast(`请假申请${status}`); renderWebContent() }
+    function openWebModal(title,body) { $('#webModalTitle').textContent = title; $('#webModalBody').innerHTML = body; $('#webModal').classList.add('show'); $('#webModal').setAttribute('aria-hidden','false') }
+    function closeWebModal() { $('#webModal').classList.remove('show'); $('#webModal').setAttribute('aria-hidden','true') }
+    function toggleWebDark() { webState.dark = !webState.dark; renderWeb() }
+    function toggleWebCollapse() { webState.collapsed = !webState.collapsed; renderWeb() }
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { closeMiniModal(); closeWebModal() } })
+    $('#miniModal').addEventListener('click', (event) => { if (event.target.id === 'miniModal') closeMiniModal() })
+    $('#webModal').addEventListener('click', (event) => { if (event.target.id === 'webModal') closeWebModal() })
+    renderMini()
+  </script>
+</body>
+</html>

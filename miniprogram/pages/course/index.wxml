@@ -1,1 +1,24 @@
-<view class="page"><view class="page-head"><text class="page-title">课程报名</text></view><view class="tabs"><text class="tab {{selected==='ALL'?'active':''}}" data-type="ALL" bindtap="filter">全部课程</text><text class="tab {{selected==='INTRO'?'active':''}}" data-type="INTRO" bindtap="filter">艺术启蒙</text><text class="tab {{selected==='ADVANCED'?'active':''}}" data-type="ADVANCED" bindtap="filter">创作进阶</text></view><view class="section"><view class="course-card card" wx:for="{{courses}}" wx:key="id" data-id="{{item.id}}" bindtap="open"><view class="course-body"><text class="course-title">{{item.name}}</text><text class="muted">{{item.lessons}} 次课 · {{item.age}}</text><text class="course-desc">{{item.description}}</text><text class="price">¥{{item.price}}</text></view></view></view></view>
+<view class="page course-page">
+  <view class="page-head course-head">
+    <view class="course-search"><text class="search-icon">⌕</text><input class="search-input" value="{{keyword}}" placeholder="搜索课程名称..." bindinput="search" /></view>
+    <text class="page-eyebrow">课程中心</text>
+    <text class="page-title">课程报名</text>
+    <text class="page-subtitle">为学习和创作挑选合适的课程</text>
+  </view>
+  <view class="filter-wrap">
+    <scroll-view class="tabs" scroll-x="true" show-scrollbar="false">
+      <view wx:for="{{categories}}" wx:key="value" class="tab {{selected===item.value?'active':''}}" data-type="{{item.value}}" bindtap="filter">
+        <view wx:if="{{selected===item.value}}" class="tab-dot"></view><text>{{item.label}}</text>
+      </view>
+    </scroll-view>
+  </view>
+  <view class="section">
+    <view class="course-card card" wx:for="{{courses}}" wx:key="id" data-id="{{item.id}}" bindtap="open">
+      <view class="course-cover-wrap"><image wx:if="{{item.cover_url}}" class="course-cover" src="{{item.cover_url}}" mode="aspectFill"/><view wx:else class="course-cover placeholder-cover placeholder-{{index}}"><view class="cover-mark"></view></view><text class="course-label">{{item.category || '艺术课程'}}</text></view>
+      <view class="course-body"><text class="course-title">{{item.name}}</text><text class="muted">{{item.lessons}} 次课 · {{item.age}}</text><text class="course-desc">{{item.description}}</text><text class="price">¥{{item.price}}</text></view>
+      <button class="favorite-button {{item.isFavorite ? 'is-favorite' : ''}}" data-id="{{item.id}}" catchtap="toggleFavorite">{{item.isFavorite ? '★' : '☆'}}</button>
+      <text class="course-arrow">›</text>
+    </view>
+    <page-state loading="{{loading}}" error="{{loadError}}" empty="{{!courses.length}}" empty-text="{{keyword || selected !== 'ALL' ? '没有找到匹配的课程，试试其他关键词或分类' : '课程即将上新，敬请期待'}}" bind:retry="loadData" />
+  </view>
+</view>

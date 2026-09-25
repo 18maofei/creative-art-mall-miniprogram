@@ -1,0 +1,32 @@
+<view class="page">
+  <view class="state-wrap"><page-state loading="{{loading}}" error="{{loadError}}" bind:retry="loadData" /></view>
+  <view class="section">
+    <text class="section-title">选择学员</text>
+    <view class="choice {{childId == item.id ? 'active' : ''}}" wx:for="{{students}}" wx:key="id" data-id="{{item.id}}" bindtap="selectChild">{{item.name}}（剩余 {{item.remaining_lessons}} 课时）</view>
+    <view wx:if="{{!students.length && !loading && !loadError}}" class="empty">暂无绑定学员</view>
+  </view>
+  <view class="section">
+    <text class="section-title">选择请假课次</text>
+    <view class="choice {{sessionId == item.id ? 'active' : ''}}" wx:for="{{sessions}}" wx:key="id" data-id="{{item.id}}" bindtap="selectSession">{{item.label}}</view>
+    <view wx:if="{{!sessions.length && !loading && !loadError}}" class="empty">该学员近期没有可请假的课次</view>
+  </view>
+  <view class="section">
+    <view class="card form">
+      <textarea placeholder="请假事由（必填）" value="{{reason}}" bindinput="onReason" maxlength="200"/>
+      <button class="primary-btn" bindtap="submit" loading="{{submitting}}" disabled="{{submitting || loading || !!loadError || !sessions.length}}">提交请假申请</button>
+    </view>
+  </view>
+  <view class="section">
+    <text class="section-title">历史申请</text>
+    <view class="card request" wx:for="{{requests}}" wx:key="id">
+      <view class="request-head">
+        <text class="request-title">{{item.child_name}} · {{item.course_title}}</text>
+        <text class="status status-{{item.status}}">{{item.statusLabel}}</text>
+      </view>
+      <text class="muted">课次时间：{{item.starts_at}}</text>
+      <text class="muted">事由：{{item.reason}}</text>
+      <text class="muted" wx:if="{{item.review_note}}">审批备注：{{item.review_note}}</text>
+    </view>
+    <view wx:if="{{!requests.length && !loading && !loadError}}" class="empty">暂无请假记录</view>
+  </view>
+</view>

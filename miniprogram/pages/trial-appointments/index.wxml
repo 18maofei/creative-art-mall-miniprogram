@@ -1,0 +1,19 @@
+<view class="page records-page">
+  <view class="records-head"><view><text class="head-title">我的试听预约</text><text class="head-copy">画室确认后会在这里更新状态</text></view><button class="outline-btn" bindtap="goBooking">再次预约</button></view>
+  <view class="section">
+    <page-state error="{{loadError}}" bind:retry="loadData" />
+    <view wx:if="{{loading}}" class="empty-card">正在加载预约记录...</view>
+    <view wx:elif="{{!loadError && !records.length}}" class="empty-card">还没有试听预约记录<button class="primary-btn empty-btn" bindtap="goBooking">预约试听</button></view>
+    <view wx:else class="record-list">
+      <view class="card record-card" wx:for="{{records}}" wx:key="id">
+        <view class="record-top"><text class="record-child">{{item.child_name}}</text><text class="status {{item.status}}">{{item.statusLabel}}</text></view>
+        <view class="record-line"><text>联系人</text><text>{{item.guardian_name}} · {{item.mobile}}</text></view>
+        <view class="record-line"><text>意向课程</text><text>{{item.course_title || '由老师推荐'}}</text></view>
+        <view class="record-line"><text>期望时间</text><text>{{item.preferred_date || '日期待定'}} · {{item.preferredTimeLabel}}</text></view>
+        <view class="record-note" wx:if="{{item.note}}">备注：{{item.note}}</view>
+        <view class="record-note handled" wx:if="{{item.handled_note}}">老师备注：{{item.handled_note}}</view>
+        <text class="record-created">提交于 {{item.created_at}}</text>
+      </view>
+    </view>
+  </view>
+</view>

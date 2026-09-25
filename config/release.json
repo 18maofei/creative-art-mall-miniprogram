@@ -1,0 +1,10 @@
+{
+  "apiBaseUrl": "https://artstudio.murphycai.top",
+  "corsOrigin": "https://artstudio.murphycai.top",
+  "institutionName": "纯粹艺术文化",
+  "allowDevAuth": false,
+  "paymentMode": "disabled",
+  "wechatPayEnabled": false,
+  "demoMode": false,
+  "allowInsecureHttp": false
+}

@@ -1,0 +1,14 @@
+<view class="page favorites-page">
+  <view class="favorites-intro"><text class="eyebrow">PURE ART CULTURE</text><text class="title">我的收藏</text><text class="copy">把喜欢的课程和作品留在这里</text></view>
+  <page-state error="{{loadError}}" bind:retry="loadData" />
+  <view class="favorites-list" wx:if="{{items.length}}">
+    <view class="favorite-card" wx:for="{{items}}" wx:key="key" data-item="{{item}}" bindtap="open">
+      <image wx:if="{{item.imageUrl}}" class="favorite-image" src="{{item.imageUrl}}" mode="aspectFill" />
+      <view wx:else class="favorite-image favorite-placeholder"><text>{{item.type === 'COURSE' ? '课' : '作'}}</text></view>
+      <view class="favorite-copy"><text class="favorite-kind">{{item.typeLabel}}</text><text class="favorite-title">{{item.title}}</text><text class="favorite-subtitle">{{item.subtitle || '点击查看内容'}}</text></view>
+      <button class="remove-button" data-item="{{item}}" catchtap="remove">移除</button>
+    </view>
+  </view>
+  <view wx:elif="{{loading}}" class="empty-state">正在整理收藏...</view>
+  <view wx:elif="{{!loadError}}" class="empty-state"><text class="empty-icon">☆</text><text>还没有收藏内容</text><text class="empty-copy">在课程或作品页点击星标即可收藏</text></view>
+</view>

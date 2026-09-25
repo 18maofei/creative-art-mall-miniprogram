@@ -1,0 +1,25 @@
+<view class="page trial-page">
+  <view class="trial-hero">
+    <text class="eyebrow">纯粹艺术文化 · 体验课</text>
+    <text class="hero-title">预约一节试听课</text>
+    <text class="hero-copy">留下联系方式和孩子信息，老师会为您推荐合适的课程与时间。</text>
+  </view>
+
+  <view class="section">
+    <page-state error="{{loadError}}" bind:retry="loadCourses" />
+    <view class="card form-card">
+      <view class="form-title">联系信息</view>
+      <view class="field"><text>联系人</text><input placeholder="请输入联系人姓名" maxlength="80" value="{{guardianName}}" data-field="guardianName" bindinput="onInput" /></view>
+      <view class="field"><text>手机号</text><input type="number" maxlength="11" placeholder="用于确认试听时间" value="{{mobile}}" data-field="mobile" bindinput="onInput" /></view>
+      <view class="form-title child-title">孩子信息</view>
+      <view class="field"><text>孩子姓名</text><input placeholder="请输入孩子姓名" maxlength="80" value="{{childName}}" data-field="childName" bindinput="onInput" /></view>
+      <view class="field"><text>孩子年龄</text><input type="number" maxlength="2" placeholder="2-18 岁（选填）" value="{{childAge}}" data-field="childAge" bindinput="onInput" /></view>
+      <view class="field"><text>意向课程</text><picker mode="selector" range="{{courseOptions}}" value="{{courseIndex}}" bindchange="onCourseChange"><view class="picker-value">{{courseOptions[courseIndex]}}<text>›</text></view></picker></view>
+      <view class="field"><text>期望日期</text><picker mode="date" value="{{preferredDate}}" start="{{today}}" bindchange="onDateChange"><view class="picker-value">{{preferredDate || '请选择日期'}}<text>›</text></view></picker></view>
+      <view class="field"><text>期望时段</text><picker mode="selector" range="{{timeOptions}}" value="{{timeIndex}}" bindchange="onTimeChange"><view class="picker-value">{{preferredTimeLabel}}<text>›</text></view></picker></view>
+      <view class="field field-column"><text>备注（选填）</text><textarea placeholder="例如：孩子是否有绘画基础、希望体验的方向" maxlength="500" value="{{note}}" data-field="note" bindinput="onInput" /></view>
+      <button class="primary-btn submit-btn" loading="{{submitting}}" disabled="{{submitting}}" bindtap="submit">提交预约</button>
+      <text class="privacy-tip">提交即表示同意画室为确认试听联系您，不会用于其他用途。</text>
+    </view>
+  </view>
+</view>

@@ -1,1 +1,25 @@
-<view class="page"><view class="section"><view class="order" wx:for="{{orders}}" wx:key="id"><view><text class="order-no">{{item.order_no}}</text><text class="muted">{{item.shipping_address_snapshot || '待补充收货地址'}}</text></view><view class="order-side"><text class="status">{{item.status}}</text><text>¥{{item.total_amount}}</text></view></view><view wx:if="{{!orders.length}}" class="empty">暂无订单</view></view></view>
+<view class="page">
+  <view class="page-intro"><text class="intro-title">我的订单</text><text class="intro-copy">课程报名与创作好物，都在这里</text></view>
+  <view class="section">
+    <view class="order card" wx:for="{{orders}}" wx:key="id">
+      <view class="order-head">
+        <text class="order-no">{{item.order_no}}</text>
+        <text class="status status-{{item.status}}">{{item.statusLabel}}</text>
+      </view>
+      <text class="order-items">{{item.itemNames || item.subject_title || '订单商品'}}</text>
+      <text class="muted" wx:if="{{item.shipping_address_snapshot}}">寄送：{{item.recipient_name_snapshot}} {{item.shipping_address_snapshot}}</text>
+      <text class="muted" wx:if="{{item.tracking_no}}" data-tracking="{{item.tracking_no}}" bindtap="copyTracking">运单号：{{item.tracking_no}} · 点击复制</text>
+      <view class="order-foot">
+        <text class="amount">¥{{item.total_amount}}</text>
+        <view class="actions">
+          <button class="mini-btn" size="mini" disabled="{{!!busyId}}" loading="{{busyId == item.id}}" wx:if="{{item.status === 'PENDING_PAYMENT'}}" data-id="{{item.id}}" bindtap="cancel">取消订单</button>
+          <button class="mini-btn primary" size="mini" disabled="{{!!busyId}}" loading="{{busyId == item.id}}" wx:if="{{item.status === 'PENDING_PAYMENT' && paymentEnabled}}" data-id="{{item.id}}" bindtap="pay">去支付</button>
+          <text class="muted" wx:if="{{item.status === 'PENDING_PAYMENT' && !paymentEnabled}}">支付通道待开通</text>
+          <button class="mini-btn" size="mini" disabled="{{!!busyId}}" loading="{{busyId == item.id}}" wx:if="{{item.status === 'SHIPPED'}}" data-id="{{item.id}}" bindtap="receive">确认收货</button>
+        </view>
+      </view>
+    </view>
+    <page-state loading="{{loading}}" error="{{loadError}}" empty="{{!orders.length}}" empty-text="还没有订单，去挑选喜欢的课程或好物吧" bind:retry="loadData" />
+    <button wx:if="{{!loading && !loadError && !orders.length}}" class="outline-btn" bindtap="goShop">逛逛商城</button>
+  </view>
+</view>

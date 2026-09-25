@@ -1,1 +1,23 @@
-<view class="page"><view class="parent-banner"><text class="banner-label">下一节课</text><text class="banner-title">创意美术启蒙班 · 第4课</text><text class="banner-copy">07/25 周六 10:00 · A校区 201 · 王老师</text></view><view class="section"><view class="balance card"><view><text class="muted">{{child.name}}的课时账户</text><text class="remaining">{{child.remainingLessons}}<text class="remaining-unit">次</text></text><text class="muted">有效期至 {{child.validUntil}}</text></view><button class="outline-btn" bindtap="renew">续费购课</button></view></view><view class="section"><view class="section-head"><text class="section-title">我的课程</text><text class="section-link">课表</text></view><view class="card"><view class="lesson" wx:for="{{lessons}}" wx:key="date"><view class="date"><text>{{item.date}}</text><text>{{item.week}}</text></view><view class="lesson-info"><text class="lesson-title">{{item.title}}</text><text class="muted">{{item.time}} · {{item.place}}</text></view><button wx:if="{{index === 0}}" class="outline-btn tiny" bindtap="leave">请假</button><text wx:else class="tag">{{item.status}}</text></view></view></view><view class="section"><view class="feedback card"><text class="section-title">最新课程反馈 · 第3课</text><text class="feedback-copy">乐乐参与积极，能独立完成作品。建议完成“我的色彩观察”作业，并在下节课分享。</text></view></view></view>
+<view class="page role-page parent-page">
+  <view class="state-wrap"><page-state loading="{{loading}}" error="{{loadError}}" bind:retry="loadData" /></view>
+  <view class="role-strip"><text>我的学习 · {{child.name || '未关联学员'}}</text><text bindtap="goProfile">我的 ›</text></view>
+  <view class="section notice-list" wx:if="{{notices.length}}">
+    <view class="notice" wx:for="{{notices}}" wx:key="id"><text class="notice-tag">公告</text><text class="notice-text">{{item.title}}：{{item.content}}</text></view>
+  </view>
+  <view class="role-hero"><text class="hero-label">下一节课</text><text class="hero-title">{{child.name || '学员'}}的成长进度</text><text class="hero-sub">{{nextSession.course_title || (child ? '近期暂无排课' : '关联学员后可查看课表')}}<block wx:if="{{nextSession.starts_at}}"> · {{nextSession.starts_at}}</block></text><button bindtap="goSchedule">查看我的课表</button></view>
+  <view class="section quick-grid"><view class="quick-item" bindtap="goSchedule"><view class="quick-icon blue">表</view><text>我的课表</text></view><view class="quick-item" bindtap="goLeave"><view class="quick-icon green">假</view><text>请假申请</text></view><view class="quick-item" bindtap="goAddress"><view class="quick-icon orange">址</view><text>收货地址</text></view><view class="quick-item" bindtap="goCourse"><view class="quick-icon purple">购</view><text>继续购课</text></view></view>
+  <view class="section"><view class="section-head"><text class="section-title">课时账户</text><view><text class="section-link" bindtap="goLedger">查看流水</text><text class="section-link" bindtap="goCourse" style="margin-left:20rpx">续费购课</text></view></view>
+    <view class="card account-card" wx:for="{{students}}" wx:key="id"><view><text class="muted">{{item.name}}（{{item.relationship}}）的剩余课时</text><text class="account-number">{{item.remainingLessons || 0}}<text> 次</text></text></view></view>
+    <view wx:if="{{!students.length && !loading && !loadError}}" class="card account-card"><text class="muted">暂未绑定学员，请联系画室前台</text></view>
+  </view>
+  <view class="section"><view class="section-head"><text class="section-title">我的课程</text><text class="section-link" bindtap="goSchedule">查看课表</text></view><view class="card"><view class="lesson-row" bindtap="goSchedule" wx:for="{{lessons}}" wx:key="id"><view class="date-box"><text>课</text><text>{{index + 1}}</text></view><view class="grow"><text class="row-title">{{item.course_title}}</text><text class="muted">{{item.starts_at}} · {{item.campus || '校区待定'}} {{item.room || ''}}</text></view><text class="arrow">›</text></view><view wx:if="{{!lessons.length && !loading && !loadError}}" class="empty-line">暂无课程安排</view></view></view>
+  <view class="section"><view class="feedback-card"><text class="section-title">最新课程反馈</text>
+    <view class="feedback-item" wx:for="{{feedback}}" wx:key="id">
+      <text class="row-title">{{item.course_title}} · {{item.teacher_name}}</text>
+      <text class="muted">{{item.child_name ? item.child_name + '：' : ''}}{{item.content}}</text>
+      <text class="muted" wx:if="{{item.homework}}">课后练习：{{item.homework}}</text>
+    </view>
+    <text class="muted" wx:if="{{!feedback.length}}">教师发布课堂反馈后，会在这里展示孩子的学习表现和课后建议。</text>
+  </view></view>
+  <view class="section bottom-banner parent-banner" bindtap="goCourse"><view><text class="banner-title">为孩子续费购课</text><text class="banner-copy">保障课时不断档，继续记录成长</text></view><text>去购课 ›</text></view>
+</view>

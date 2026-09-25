@@ -1,1 +1,24 @@
-<view class="page"><view class="teacher-banner"><text class="banner-label">今日课程</text><text class="banner-title">创意美术启蒙班</text><text class="banner-copy">10:00-11:30 · A校区 201 · 12位学员</text></view><view class="section"><view class="section-head"><text class="section-title">学生考勤</text><text class="tag">第4课</text></view><view class="card"><view class="student" wx:for="{{students}}" wx:key="id"><view class="avatar">{{item.initial}}</view><view class="student-info"><text class="student-name">{{item.name}}</text><text class="muted">剩余 {{item.remaining}} 次课时</text></view><button class="state-btn {{item.state === '出勤' ? 'selected' : ''}}" data-index="{{index}}" data-state="出勤" bindtap="toggle">出勤</button><button class="state-btn leave {{item.state === '请假' ? 'selected' : ''}}" data-index="{{index}}" data-state="请假" bindtap="toggle">请假</button></view></view><view class="rule card"><text class="section-title">扣课规则</text><text class="muted">确认考勤后，出勤学员自动扣减 1 次有效课时；请假学员不扣课。</text></view><button class="primary-btn confirm" bindtap="confirm" disabled="{{locked}}">{{locked ? '已确认考勤' : '确认考勤并扣课时'}}</button></view></view>
+<view class="page role-page teacher-page">
+  <view class="role-strip"><text>教师工作台</text><text bindtap="goProfile">我的 ›</text></view>
+  <view class="section notice-list" wx:if="{{notices.length}}">
+    <view class="notice" wx:for="{{notices}}" wx:key="id"><text class="notice-tag">公告</text><text class="notice-text">{{item.title}}：{{item.content}}</text></view>
+  </view>
+  <view class="role-hero"><text class="hero-label">今日教学安排</text><text class="hero-title">{{currentSession.course_title || '暂无待授课程'}}</text><text class="hero-sub">{{currentSession.starts_at || '发布排课后将在此显示'}} · {{currentSession.campus || '校区待定'}} {{currentSession.room || ''}}</text><button bindtap="submit">处理今日考勤</button></view>
+  <view class="section quick-grid"><view class="quick-item" bindtap="goSchedule"><view class="quick-icon blue">排</view><text>我的排课</text></view><view class="quick-item" bindtap="submit"><view class="quick-icon green">勤</view><text>学生考勤</text></view><view class="quick-item" bindtap="openFeedback"><view class="quick-icon orange">评</view><text>课程反馈</text></view><view class="quick-item" bindtap="goSchedule"><view class="quick-icon purple">历</view><text>历史课程</text></view></view>
+  <view class="section"><view class="section-head"><text class="section-title">待处理事项</text><text class="section-link" bindtap="goSchedule">查看排课</text></view><view class="card todo-card"><view><text class="row-title">{{currentSession.course_title || '暂未安排课程'}}</text><text class="muted">{{currentSession.starts_at || '请在后台发布课程排期'}} · {{students.length}} 位学员</text></view><button class="outline-btn" bindtap="submit">去考勤</button></view><view class="card todo-card"><view><text class="row-title">课程反馈待发布</text><text class="muted">完成本节课评价后，家长将在小程序看到反馈。</text></view><button class="outline-btn" bindtap="openFeedback">去填写</button></view></view>
+  <view class="section"><view class="section-head"><text class="section-title">学生考勤</text><text class="tag">{{students.length}} 人</text></view><view class="card"><view class="student" wx:for="{{students}}" wx:key="student_id"><view class="avatar">{{item.initial}}</view><view class="grow"><text class="row-title">{{item.name}}</text><text class="muted">剩余 {{item.remaining_lessons}} 次课时</text></view><button class="state-btn {{item.status === 'PRESENT' ? 'selected' : ''}}" data-index="{{index}}" data-status="PRESENT" bindtap="choose">出勤</button><button class="state-btn leave {{item.status === 'LEAVE' ? 'selected' : ''}}" data-index="{{index}}" data-status="LEAVE" bindtap="choose">请假</button></view><view wx:if="{{!students.length}}" class="empty-line">暂无待确认考勤</view></view></view>
+  <view class="section bottom-banner teacher-banner" bindtap="submit"><view><text class="banner-title">处理今日考勤</text><text class="banner-copy">确认出勤后将自动扣减有效课时</text></view><text>去处理 ›</text></view>
+  <view class="feedback-mask" wx:if="{{showFeedback}}" bindtap="closeFeedback">
+    <view class="feedback-modal" catchtap="noop">
+      <text class="modal-title">发布课堂反馈</text>
+      <text class="muted">{{currentSession.course_title}} · {{currentSession.starts_at}}</text>
+      <textarea placeholder="课堂表现、学习建议（必填）" value="{{feedbackContent}}" data-field="feedbackContent" bindinput="onFeedbackInput" maxlength="300"/>
+      <textarea class="short" placeholder="课后练习（选填）" value="{{feedbackHomework}}" data-field="feedbackHomework" bindinput="onFeedbackInput" maxlength="200"/>
+      <view class="modal-actions">
+        <button class="outline-btn" bindtap="closeFeedback">取消</button>
+        <button class="primary-btn" bindtap="sendFeedback">发布反馈</button>
+      </view>
+    </view>
+  </view>
+  <view class="custom-nav"><view class="nav-item active" bindtap="goHome"><text>⌂</text><text>工作台</text></view><view class="nav-item" bindtap="goSchedule"><text>▣</text><text>排课</text></view><view class="nav-item" bindtap="submit"><text>✓</text><text>考勤</text></view><view class="nav-item" bindtap="goProfile"><text>◉</text><text>我的</text></view></view>
+</view>

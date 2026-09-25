@@ -1,5 +1,6 @@
 node_modules/
 backend/node_modules/
 backend/.env
+backend/*.log
 miniprogram/private.config.json
 project.private.config.json

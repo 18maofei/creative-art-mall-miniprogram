@@ -1,1 +1,25 @@
-<view class="page" wx:if="{{course}}"><view class="section"><view class="card detail"><text class="course-title">{{course.name}}</text><text class="price">¥{{course.price}}</text><text class="muted">{{course.default_lesson_count || course.lessons}} 次课</text><text class="course-desc">{{course.description}}</text><button class="primary-btn" bindtap="apply">提交报名申请</button></view></view></view>
+<view class="page detail-page">
+  <view wx:if="{{loading}}" class="detail-state"><view class="card empty">正在加载课程...</view></view>
+  <view wx:elif="{{error}}" class="detail-state"><page-state error="{{error}}" bind:retry="loadData" /></view>
+  <block wx:elif="{{course}}">
+    <view class="detail-content">
+      <view class="detail-hero">
+        <image wx:if="{{course.cover_url}}" class="detail-cover" src="{{course.cover_url}}" mode="aspectFill"/><view wx:else class="detail-cover detail-cover-placeholder"><view class="detail-art-mark"></view></view>
+        <view class="detail-hero-shade"></view>
+        <view class="detail-hero-copy"><text class="detail-kicker">{{course.category || '艺术课程'}}</text><text class="detail-title">{{course.name}}</text><view class="detail-tags"><text>{{course.lessons}}次课</text><text>{{course.age}}</text></view><text class="detail-summary">{{course.description}}</text></view>
+      </view>
+
+      <view class="detail-highlights card">
+        <view class="highlight-item"><view class="highlight-icon mentor">师</view><text class="highlight-title">专业导师</text><text class="highlight-copy">{{course.teacher_name || '老师待安排'}}</text></view>
+        <view class="highlight-item"><view class="highlight-icon class-size">组</view><text class="highlight-title">小班教学</text><text class="highlight-copy">具体班额请咨询</text></view>
+        <view class="highlight-item"><view class="highlight-icon showcase">作</view><text class="highlight-title">作品展示</text><text class="highlight-copy">记录创作成长</text></view>
+      </view>
+
+      <view class="detail-tabs card"><view class="detail-tab {{detailTab === 'intro' ? 'active' : ''}}" data-tab="intro" bindtap="switchDetailTab">课程介绍</view><view class="detail-tab {{detailTab === 'schedule' ? 'active' : ''}}" data-tab="schedule" bindtap="switchDetailTab">课程安排</view></view>
+
+      <view wx:if="{{detailTab === 'intro'}}" class="detail-panel card"><text class="detail-panel-title">关于这门课</text><text class="feature-copy">{{course.description || '课程介绍更新中，可预约咨询了解详情。'}}</text></view>
+      <view wx:elif="{{detailTab === 'schedule'}}" class="detail-panel card"><text class="detail-panel-title">课程安排</text><view class="schedule-row"><text class="schedule-label">上课时间</text><text class="schedule-value">{{course.schedule || '时间待定'}}</text></view><view class="schedule-row"><text class="schedule-label">上课地点</text><text class="schedule-value">{{course.campus || '纯粹艺术文化画室'}} {{course.room || ''}}</text></view><view class="schedule-row"><text class="schedule-label">课程课时</text><text class="schedule-value">共 {{course.lessons}} 次课</text></view></view>
+    </view>
+    <view class="detail-bottom-bar"><view class="detail-price"><text class="price">¥{{course.price}}</text><text class="muted">课程总价</text></view><button class="primary-btn apply-btn" bindtap="apply" loading="{{paying}}" disabled="{{paying}}">{{paying ? '支付处理中…' : paymentEnabled ? '立即报名' : '预约咨询'}}</button></view>
+  </block>
+</view>

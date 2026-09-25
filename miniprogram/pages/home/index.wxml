@@ -1,25 +1,35 @@
-<view class="page">
+<view class="page visitor-page">
+  <view class="home-topbar">
+    <view class="brand-lockup"><text class="brand-title">纯粹艺术文化</text><text class="brand-subtitle">让艺术走进生活</text></view>
+  </view>
+
+  <view class="state-wrap"><page-state loading="{{loading}}" error="{{loadError}}" bind:retry="loadData" /></view>
   <view class="hero">
-    <view class="hero-art hero-ring"></view><view class="hero-art hero-mountain"></view>
-    <view class="eyebrow">拾色画室 · 少儿美术</view>
-    <view class="hero-title">看见孩子的<br/>创造力</view>
-    <view class="hero-copy">艺术启蒙、课程服务与成长陪伴<br/>从一节体验课开始</view>
-    <button class="hero-btn" bindtap="reserve">预约试听</button>
+    <view class="hero-art hero-leaf hero-leaf-one"></view><view class="hero-art hero-leaf hero-leaf-two"></view><view class="hero-art hero-branch"></view>
+    <view class="hero-copy-wrap"><text class="eyebrow">发现 · 学习 · 创造</text><text class="hero-title">艺术让生活\n更有温度</text><text class="hero-copy">在创作里，看见孩子的想象力</text><button class="hero-btn" bindtap="reserve">预约体验课 <text>›</text></button></view>
   </view>
 
-  <view class="section quick-grid">
-    <view class="quick-item" bindtap="goCourse"><view class="quick-icon green">课</view><text>课程报名</text></view>
-    <view class="quick-item" bindtap="goShop"><view class="quick-icon orange">购</view><text>周边商城</text></view>
-    <view class="quick-item" bindtap="goParent"><view class="quick-icon blue">家</view><text>家长入口</text></view>
-    <view class="quick-item" bindtap="goTeacher"><view class="quick-icon purple">师</view><text>教师入口</text></view>
+  <view class="section search-bar" bindtap="goCourse"><text class="search-icon">⌕</text><text class="search-placeholder">搜索感兴趣的课程</text></view>
+
+  <view class="section"><view class="section-head"><text class="section-title">热门课程</text><text class="section-link" bindtap="goCourse">查看全部 ›</text></view>
+    <view class="featured-grid">
+      <block wx:for="{{courses}}" wx:key="id">
+        <view wx:if="{{index < 2}}" class="featured-card card" data-id="{{item.id}}" bindtap="openCourse">
+          <view class="featured-media"><image wx:if="{{item.cover}}" src="{{item.cover}}" mode="aspectFill"/><view wx:else class="featured-placeholder placeholder-{{index}}"><view class="placeholder-mark"></view></view><text class="featured-tag">{{item.category || '精选'}}</text></view>
+          <view class="featured-body"><text class="course-name">{{item.name}}</text><text class="muted">{{item.lessons}}次课 · {{item.age}}</text><text class="price">¥{{item.price}}</text></view>
+        </view>
+      </block>
+    </view>
+    <view wx:if="{{!loading && !loadError && !courses.length}}" class="empty-card">暂无已发布课程</view>
   </view>
 
-  <view class="section"><view class="section-head"><text class="section-title">课堂作品</text><text class="section-link">查看全部</text></view>
-    <view class="art-grid"><view class="art-card ochre"><view class="circle"></view><text>课堂作品</text></view><view class="art-card teal"><view class="square"></view><text>教学花絮</text></view></view>
+  <view class="section notice-list" wx:if="{{notices.length}}">
+    <view class="notice" wx:for="{{notices}}" wx:key="id"><text class="notice-tag">公告</text><text class="notice-text">{{item.title}}：{{item.content}}</text></view>
   </view>
 
-  <view class="section"><view class="section-head"><text class="section-title">在售课程</text><text class="section-link" bindtap="goCourse">查看全部</text></view>
-    <view class="card course-preview" wx:for="{{courses}}" wx:key="id" bindtap="goCourse"><view class="course-image {{item.color}}"></view><view class="course-info"><text class="course-name">{{item.name}}</text><text class="muted">{{item.age}} · {{item.lessons}}次课 · {{item.schedule}}</text><text class="price">¥{{item.price}}</text></view><text class="go-arrow">›</text></view>
+  <view class="section"><view class="section-head"><text class="section-title">课堂作品</text><text class="section-link" bindtap="goGallery">查看全部 ›</text></view>
+    <view class="art-grid"><view class="art-card art-card-large" bindtap="goGallery"><image wx:if="{{artworks[0].image_url}}" src="{{artworks[0].image_url}}" mode="aspectFill"/><view wx:else class="art-placeholder art-placeholder-one"></view><view class="art-shade"></view><text>{{artworks[0].title || '课堂作品'}}</text></view><view class="art-card art-card-small" bindtap="goGallery"><image wx:if="{{artworks[1].image_url}}" src="{{artworks[1].image_url}}" mode="aspectFill"/><view wx:else class="art-placeholder art-placeholder-two"></view><view class="art-shade"></view><text>{{artworks[1].title || '教学花絮'}}</text></view></view>
   </view>
-  <view class="section"><button class="profile-link" bindtap="goProfile">我的服务与订单 ›</button></view>
+
+  <view class="section bottom-banner" bindtap="reserve"><view><text class="banner-title">预约一节体验课</text><text class="banner-copy">给孩子一次自由创作的机会</text></view><text>立即预约 ›</text></view>
 </view>

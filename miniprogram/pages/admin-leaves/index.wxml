@@ -1,0 +1,28 @@
+<view class="page">
+  <view class="head">
+    <text class="eyebrow">TEACHING SERVICE</text>
+    <text class="title">请假审批</text>
+    <text class="copy">批准后自动写入 LEAVE 考勤，家长无需重复提交。</text>
+  </view>
+  <view class="tabs">
+    <view wx:for="{{filters}}" wx:key="value" class="tab {{selected === item.value ? 'active' : ''}}" data-value="{{item.value}}" bindtap="chooseFilter">{{item.label}}</view>
+  </view>
+  <view class="section">
+    <view wx:for="{{requests}}" wx:key="id" class="request card">
+      <view class="request-head">
+        <view class="request-main">
+          <text class="request-title">{{item.child_name}} · {{item.course_title}}</text>
+          <text class="muted">申请人：{{item.requested_by_name}}</text>
+        </view>
+        <text class="status status-{{item.status}}">{{item.statusLabel}}</text>
+      </view>
+      <text class="muted">课次：{{item.timeLabel}}</text>
+      <text class="muted">班级：{{item.class_name}}</text>
+      <text class="reason">事由：{{item.reason}}</text>
+      <text wx:if="{{item.review_note}}" class="review-note">审批备注：{{item.review_note}}</text>
+      <button wx:if="{{item.status === 'PENDING'}}" class="primary-btn" data-request="{{item}}" bindtap="review" loading="{{processingId === item.id}}">处理申请</button>
+    </view>
+    <view wx:if="{{!requests.length && !loading}}" class="empty">暂无符合条件的请假申请</view>
+    <view wx:if="{{loading}}" class="empty">正在加载…</view>
+  </view>
+</view>

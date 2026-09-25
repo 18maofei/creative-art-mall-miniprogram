@@ -1,4 +1,42 @@
-<view class="page">
-  <view class="profile-head"><view class="avatar">我</view><view><text class="name">画室服务</text><text class="muted">订单、地址与教务管理</text></view></view>
-  <view class="section"><view class="card"><view class="service" wx:for="{{services}}" wx:key="name" data-url="{{item.url}}" bindtap="openService"><text>{{item.name}}</text><text class="arrow">›</text></view></view></view>
+<view class="page profile-page">
+  <view class="ink-mark ink-mark-one"></view><view class="ink-mark ink-mark-two"></view><view class="ink-mountain"></view>
+  <view class="profile-top">
+    <view class="brand-lockup"><text class="brand-title">{{brandName}}</text><text class="brand-subtitle">让艺术走进生活</text></view>
+    <view class="top-leaf"><view></view><view></view><view></view></view>
+  </view>
+
+  <block wx:if="{{!loggedIn}}">
+    <button class="guest-login {{loggingIn ? 'is-loading' : ''}}" open-type="getPhoneNumber" bindgetphonenumber="getPhoneNumber" disabled="{{loggingIn}}" hover-class="none">
+      <view class="guest-avatar"><text>人</text></view>
+      <view class="guest-copy"><text class="guest-title">{{loggingIn ? '正在登录...' : '微信手机号登录'}}</text><text class="guest-subtitle">授权后用于订单与服务通知</text></view>
+      <text class="arrow">›</text>
+    </button>
+    <text class="guest-skip-login" bindtap="login">暂不授权手机号，继续登录</text>
+    <view class="guest-shortcuts">
+      <view class="shortcut" wx:for="{{guestShortcuts}}" wx:key="key" data-key="{{item.key}}" bindtap="openGuestShortcut">
+        <text class="shortcut-icon">{{item.icon}}</text><text class="shortcut-title">{{item.label}}</text><text class="shortcut-copy">{{item.copy}}</text>
+      </view>
+    </view>
+    <view class="journey-panel" bindtap="login">
+      <view class="journey-copy"><text class="journey-title">开启你的艺术之旅</text><text class="journey-subtitle">登录后享受更多服务</text></view>
+      <view class="brush-set"><view class="brush brush-one"></view><view class="brush brush-two"></view><view class="brush brush-three"></view></view><text class="journey-arrow">›</text>
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="member-card" bindtap="openSettings">
+      <image wx:if="{{avatarUrl}}" class="member-avatar" src="{{avatarUrl}}" mode="aspectFill" />
+      <view wx:else class="member-avatar member-avatar-fallback">{{avatarInitial}}</view>
+      <view class="member-copy"><view class="member-name-row"><text class="member-name">{{displayName}}</text><text class="edit-mark">⌕</text></view><text class="role-badge">{{roleLabel}}</text><text class="member-stats">近期 {{courseCount}} 门课程　|　收藏 {{favoriteCount}} 项</text></view>
+      <text class="arrow">›</text>
+    </view>
+    <view class="member-actions">
+      <view class="action-row" wx:for="{{memberActions}}" wx:key="key" data-key="{{item.key}}" bindtap="openMemberAction">
+        <view class="action-icon action-{{item.key}}"><text>{{item.icon}}</text></view>
+        <view class="action-copy"><text class="action-title">{{item.title}}</text><text class="action-subtitle">{{item.copy}}</text></view>
+        <text class="arrow">›</text>
+      </view>
+    </view>
+  </block>
+  <view class="bottom-wash"><view></view><view></view></view>
 </view>

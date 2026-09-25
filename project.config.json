@@ -5,7 +5,7 @@
     "include": []
   },
   "setting": {
-    "urlCheck": false,
+    "urlCheck": true,
     "es6": true,
     "enhance": true,
     "postcss": true,
@@ -31,8 +31,9 @@
   },
   "compileType": "miniprogram",
   "libVersion": "3.7.12",
-  "appid": "wxe513de0a0897d280",
+  "appid": "wxffcb7034e2e168f1",
   "miniprogramRoot": "miniprogram/",
   "simulatorPluginLibVersion": {},
-  "editorSetting": {}
+  "editorSetting": {},
+  "isGameTourist": false
 }

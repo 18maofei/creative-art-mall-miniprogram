@@ -1,0 +1,23 @@
+.page { min-height: 100vh; padding-bottom: 48rpx; }
+.head { display: flex; flex-direction: column; gap: 10rpx; padding: 40rpx 28rpx 34rpx; background: #e7f4ee; color: #164938; }
+.eyebrow { color: #397461; font-size: 20rpx; letter-spacing: 2rpx; }
+.title { font-size: 44rpx; font-weight: 700; }
+.copy { color: #4f7567; font-size: 24rpx; }
+.tabs { display: flex; gap: 12rpx; padding: 22rpx 28rpx 6rpx; overflow-x: auto; background: #f5f7f5; }
+.tab { flex-shrink: 0; padding: 11rpx 22rpx; border: 1rpx solid #dfe7e3; border-radius: 999rpx; background: #fff; color: #62736c; font-size: 24rpx; }
+.tab.active { border-color: #16785c; background: #e7f4ee; color: #16785c; font-weight: 600; }
+.section { margin: 22rpx 28rpx 0; }
+.card { border-radius: 14rpx; background: #fff; box-shadow: 0 8rpx 22rpx rgba(33, 68, 56, .06); }
+.request { display: flex; flex-direction: column; gap: 10rpx; margin-bottom: 16rpx; padding: 24rpx; }
+.request-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18rpx; }
+.request-main { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 6rpx; }
+.request-title { color: #20332d; font-size: 28rpx; font-weight: 700; }
+.muted { color: #75847f; font-size: 22rpx; line-height: 1.45; }
+.status { flex-shrink: 0; font-size: 22rpx; }
+.status-PENDING { color: #a05216; }
+.status-APPROVED { color: #16785c; }
+.status-REJECTED, .status-CANCELLED { color: #a04c4c; }
+.reason { color: #33443e; font-size: 24rpx; line-height: 1.5; }
+.review-note { padding: 12rpx 16rpx; border-radius: 8rpx; background: #f6f8f7; color: #64736d; font-size: 22rpx; }
+.primary-btn { margin-top: 8rpx; border-radius: 10rpx; background: #16785c; color: #fff; font-size: 25rpx; }
+.empty { padding: 60rpx 0; color: #87948f; text-align: center; font-size: 24rpx; }

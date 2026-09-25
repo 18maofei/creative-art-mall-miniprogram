@@ -1,0 +1,6 @@
+<view wx:if="{{loading || error || empty}}" class="state">
+  <view class="state-mark">{{loading ? '◌' : error ? '!' : '✦'}}</view>
+  <text class="state-title">{{loading ? '正在加载…' : error ? '暂时无法显示' : emptyText}}</text>
+  <text wx:if="{{error}}" class="state-copy">{{error}}</text>
+  <button wx:if="{{error}}" class="retry" bindtap="retry">重试</button>
+</view>

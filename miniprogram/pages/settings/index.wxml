@@ -1,0 +1,32 @@
+<view class="page settings-page">
+  <view class="settings-intro">
+    <text class="eyebrow">纯粹艺术文化</text>
+    <text class="title">让美好，有你的署名</text>
+    <text class="copy">用喜欢的头像与昵称，开启创作之旅</text>
+  </view>
+  <view class="profile-panel">
+    <view class="avatar-section">
+      <button class="avatar-picker" bindtap="chooseAvatar" disabled="{{loading || saving || choosing}}" aria-label="更换头像" hover-class="avatar-pressed">
+        <image wx:if="{{avatarDraft}}" class="avatar-image" src="{{avatarDraft}}" mode="aspectFill" />
+        <view wx:else class="avatar-image avatar-fallback">{{avatarInitial}}</view>
+        <view class="avatar-edit"><view class="camera-icon"><view class="camera-lens"></view></view></view>
+      </button>
+      <text class="avatar-action" bindtap="chooseAvatar">{{choosing ? '正在选择…' : '更换头像'}}</text>
+      <text class="avatar-hint">{{avatarPath ? '新头像已选好，保存后生效' : '记录你的独特模样'}}</text>
+    </view>
+    <view class="nickname-section">
+      <view class="field-heading"><text class="field-label">我的昵称</text><text class="field-optional">你希望被如何称呼</text></view>
+      <input class="nickname-input" value="{{nickname}}" type="nickname" maxlength="80" placeholder="输入你的昵称" placeholder-class="input-placeholder" disabled="{{loading || saving}}" bindinput="onNicknameInput" bindblur="onNicknameInput" />
+    </view>
+  </view>
+  <view class="account-panel">
+    <view class="settings-row"><view class="row-content"><text class="row-title">微信账号</text><text class="row-copy">用于同步你的资料与学习记录</text></view><view class="status-pill"><view class="status-dot"></view><text>已登录</text></view></view>
+    <button class="settings-row phone-row" open-type="getPhoneNumber" bindgetphonenumber="bindWechatPhone" disabled="{{loading || saving || choosing || bindingPhone}}" hover-class="row-pressed"><view class="row-content"><text class="row-title">{{mobile ? '微信手机号已绑定' : '绑定微信手机号'}}</text><text class="row-copy">{{mobile || '用于订单、预约和服务通知'}}</text></view><text class="arrow">›</text></button>
+    <button class="settings-row logout-row" bindtap="logout" disabled="{{saving || choosing}}" hover-class="row-pressed"><text class="row-title">退出登录</text><text class="arrow">›</text></button>
+  </view>
+  <view class="save-area">
+    <view wx:if="{{errorMessage}}" class="error-message">{{errorMessage}}</view>
+    <button class="save-button {{loading || saving || choosing || !dirty ? 'is-disabled' : ''}}" loading="{{saving}}" disabled="{{loading || saving || choosing || !dirty}}" bindtap="saveProfile" hover-class="save-pressed">{{loading ? '正在加载资料…' : saving ? '正在保存…' : '保存修改'}}</button>
+    <text class="save-hint">{{dirty ? '修改尚未保存' : '你的资料，将陪伴每一次创作'}}</text>
+  </view>
+</view>

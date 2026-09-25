@@ -1,1 +1,18 @@
-.order { display:flex; justify-content:space-between; gap:18rpx; margin-bottom:14rpx; padding:24rpx; border:1rpx solid #e3ebe7; border-radius:8rpx; background:#fff; }.order-no,.muted { display:block; }.order-no { font-size:27rpx; font-weight:600; }.muted { margin-top:8rpx; color:#788781; font-size:22rpx; }.order-side { display:flex; flex-direction:column; align-items:flex-end; gap:10rpx; color:#18785c; font-size:26rpx; }.status { font-size:21rpx; color:#a05216; }.empty { padding:60rpx 0; color:#87948f; text-align:center; }
+.order { display:flex; flex-direction:column; gap:10rpx; margin-bottom:14rpx; padding:24rpx; border:1rpx solid #e3ebe7; border-radius:12rpx; background:#fff; }
+.order-head { display:flex; justify-content:space-between; align-items:center; }
+.order-no { font-size:27rpx; font-weight:600; }
+.order-items { color:#33443e; font-size:25rpx; }
+.muted { color:#788781; font-size:22rpx; }
+.order-foot { display:flex; justify-content:space-between; align-items:center; margin-top:6rpx; }
+.amount { color:#24664f; font-size:30rpx; font-weight:700; }
+.actions { display:flex; gap:12rpx; }
+.mini-btn { margin:0; padding:0 28rpx; border:1rpx solid #cfe0d8; border-radius:999rpx; background:#fff; color:#33443e; font-size:23rpx; line-height:2.2; }
+.mini-btn.primary { border-color:#24664f; background:#24664f; color:#fff; }
+.status { font-size:21rpx; color:#a05216; }
+.status-COMPLETED { color:#24664f; }
+.status-PAID, .status-SHIPPED { color:#2a6f97; }
+.status-CANCELLED, .status-REFUNDED { color:#9a4b4b; }
+.empty { padding:60rpx 0; color:#87948f; text-align:center; }
+@import "../../styles/customer.wxss";
+
+.order-head, .order-foot, .actions { flex-wrap:wrap; gap:16rpx; } .order-no { max-width:100%; overflow-wrap:break-word; font-size:24rpx; } .mini-btn { min-height:72rpx; display:flex; align-items:center; font-size:24rpx; }

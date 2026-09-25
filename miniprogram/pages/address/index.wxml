@@ -1,1 +1,31 @@
-<view class="page"><view class="section"><view class="address" wx:for="{{addresses}}" wx:key="id"><text>{{item.recipient_name}} {{item.mobile}}</text><text class="muted">{{item.province}}{{item.city}}{{item.district}}{{item.detail}}</text></view></view><view class="section"><view class="card form"><input placeholder="收件人" data-field="recipientName" bindinput="onInput"/><input placeholder="手机号" type="number" data-field="mobile" bindinput="onInput"/><input placeholder="省" data-field="province" bindinput="onInput"/><input placeholder="市" data-field="city" bindinput="onInput"/><input placeholder="区/县" data-field="district" bindinput="onInput"/><input placeholder="详细地址" data-field="detail" bindinput="onInput"/><button class="primary-btn" bindtap="submit">保存为默认地址</button></view></view></view>
+<view class="page">
+  <view class="page-intro"><text class="intro-title">收货地址</text><text class="intro-copy">把每一份创作心意，送到你身边</text></view>
+  <view class="section">
+    <view class="address card" wx:for="{{addresses}}" wx:key="id">
+      <view class="address-main">
+        <view class="address-head">
+          <text>{{item.recipient_name}} {{item.mobile}}</text>
+          <text wx:if="{{item.is_default}}" class="badge">默认</text>
+        </view>
+        <text class="muted">{{item.province}}{{item.city}}{{item.district}}{{item.detail}}</text>
+      </view>
+      <view class="address-actions">
+        <text class="link" data-id="{{item.id}}" bindtap="edit">编辑</text>
+        <text wx:if="{{!item.is_default}}" class="link" data-id="{{item.id}}" bindtap="makeDefault">设为默认</text>
+        <text class="link danger" data-id="{{item.id}}" bindtap="remove">删除</text>
+      </view>
+    </view>
+    <page-state loading="{{loading}}" error="{{loadError}}" empty="{{!addresses.length}}" empty-text="还没有收货地址，请在下方添加" bind:retry="loadAddresses" />
+  </view>
+  <view class="section">
+    <view class="card form" id="address-form">
+      <view class="section-head"><text class="section-title">{{editingId ? '编辑地址' : '添加地址'}}</text><text wx:if="{{editingId}}" class="section-link" bindtap="cancelEdit">取消编辑</text></view>
+      <input placeholder="收件人" value="{{form.recipientName}}" data-field="recipientName" bindinput="onInput"/>
+      <input placeholder="手机号" type="number" maxlength="11" value="{{form.mobile}}" data-field="mobile" bindinput="onInput"/>
+      <picker mode="region" value="{{region}}" bindchange="onRegion" disabled="{{submitting || actionBusy || loading}}"><view class="region-picker">{{region.length ? region[0] + ' / ' + region[1] + ' / ' + region[2] : '选择省 / 市 / 区县'}}<text>›</text></view></picker>
+      <input placeholder="详细地址" value="{{form.detail}}" data-field="detail" bindinput="onInput"/>
+      <view class="switch-row"><text>设为默认地址</text><switch checked="{{isDefault}}" color="#16785c" bindchange="toggleDefault"/></view>
+      <button class="primary-btn" bindtap="submit" loading="{{submitting}}" disabled="{{submitting}}">{{editingId ? '保存修改' : '保存地址'}}</button>
+    </view>
+  </view>
+</view>
