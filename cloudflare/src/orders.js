@@ -1,5 +1,5 @@
 import { all, first, run, changedRows, batch, HttpError, isoNow } from './core.js'
-import { applyLedger } from './lessons.js'
+import { applyLedger, balanceOf } from './lessons.js'
 
 function orderNo() {
   return `ZX${Date.now()}${Math.floor(Math.random() * 900 + 100)}`
@@ -203,6 +203,41 @@ export async function cancelOrder(db, orderId) {
     throw new HttpError(409, '订单状态已变化，请刷新后重试')
   }
   return { id: Number(orderId), status: 'CANCELLED' }
+}
+
+async function reverseCourseCredits(db, order, refundId) {
+  const items = await all(db, `
+    SELECT order_items.id, order_items.quantity, courses.default_lesson_count, courses.name AS course_name
+    FROM order_items JOIN courses ON courses.id = order_items.course_id
+    WHERE order_items.order_id = ? AND order_items.course_id IS NOT NULL
+  `, [order.id])
+  if (!items.length) return
+  if (!order.course_child_id) throw new HttpError(409, '课程订单缺少对应学员，无法完成退款')
+  const required = items.reduce((total, item) => total + Number(item.default_lesson_count || 0) * Number(item.quantity || 0), 0)
+  const balance = await balanceOf(db, order.course_child_id)
+  if (balance < required) throw new HttpError(409, `学员剩余课时不足（需要扣回 ${required} 次，当前 ${balance} 次），请先人工处理`)
+  for (const item of items) {
+    await applyLedger(db, {
+      childId: Number(order.course_child_id), type: 'REFUND',
+      quantity: -Number(item.default_lesson_count || 0) * Number(item.quantity || 0),
+      reason: `订单退款「${item.course_name}」`, idempotencyKey: `refund-${refundId}-item-${item.id}`
+    })
+  }
+}
+
+export async function completeWechatRefund(db, refundRecord, payload) {
+  if (String(refundRecord.status).toUpperCase() === 'SUCCESS') return { id: Number(refundRecord.order_id), status: 'REFUNDED' }
+  const order = await first(db, 'SELECT * FROM orders WHERE id = ?', [refundRecord.order_id])
+  if (!order) throw new HttpError(404, '退款订单不存在')
+  await reverseCourseCredits(db, order, payload?.refund_id || refundRecord.out_refund_no)
+  const now = isoNow()
+  const refundId = String(payload?.refund_id || refundRecord.refund_id || '').trim() || null
+  await batch(db, [
+    { sql: "UPDATE refund_records SET status = 'SUCCESS', refund_id = COALESCE(?, refund_id), raw_payload = ?, success_at = ?, updated_at = ? WHERE id = ? AND status <> 'SUCCESS'", params: [refundId, JSON.stringify(payload || {}), now, now, refundRecord.id] },
+    { sql: "UPDATE payment_records SET status = 'REFUNDED', raw_payload = ?, updated_at = ? WHERE order_id = ? AND status = 'SUCCESS'", params: [JSON.stringify(payload || {}), now, order.id] },
+    { sql: "UPDATE orders SET status = 'REFUNDED', updated_at = ? WHERE id = ? AND status <> 'REFUNDED'", params: [now, order.id] }
+  ])
+  return { id: Number(order.id), status: 'REFUNDED' }
 }
 
 // 定时释放无人支付的库存，仍复用取消订单的条件更新，避免和支付/用户取消并发时重复回补。

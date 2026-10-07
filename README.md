@@ -185,7 +185,7 @@ npm run dev        # http://127.0.0.1:3000
 ## 核心业务规则
 
 - **课时**：`lesson_ledger` 流水表 + 幂等键。购课支付成功自动充值；考勤 PRESENT 扣 1 次（键 `attend-{sessionId}-{childId}`，重复提交不重复扣）；LEAVE/ABSENT 不扣。
-- **订单状态机**：`PENDING_PAYMENT → PAID → SHIPPED → COMPLETED`，支持 `CANCELLED`（回补库存）。退款不能通过后台直接伪标记，必须接入支付渠道退款接口后再开放。
+- **订单状态机**：`PENDING_PAYMENT → PAID → SHIPPED → COMPLETED`，支持 `CANCELLED`（回补库存）和微信支付退款（退款申请记录为 `PROCESSING`，以微信退款回调确认后变为 `REFUNDED`）。课程退款会校验并扣回未使用课时。
 - **订单幂等**：课程报名和商城结算会携带一次性幂等键；服务端按买家和幂等键唯一约束，网络重试不会重复扣库存或创建订单。
 - **待支付订单过期**：Worker 每 5 分钟清理超过 30 分钟未支付的订单，并原子回补已锁定的商品库存。
 - **请假**：家长仅能对未开始课次申请；管理员批准后系统预写 LEAVE 考勤。
@@ -193,7 +193,7 @@ npm run dev        # http://127.0.0.1:3000
 
 ## ⚠️ 生产上线前必须处理
 
-1. **填写并验证真实微信支付**：Worker 已包含微信支付 V3 JSAPI 下单、回调验签解密和幂等入账适配器，但生产默认仍是 `PAYMENT_MODE=disabled`。申请微信支付商户号，配置商户 API 私钥、商户证书序列号、API v3 密钥、微信支付平台证书和 HTTPS 回调地址，完成沙箱/小额实付验证后再把 Worker 与小程序的 `paymentMode` 同时切换为 `wechat`。退款接口仍需单独接入，未接入前不能把订单标为退款。
+1. **填写并验证真实微信支付**：Worker 已包含微信支付 V3 JSAPI 下单、支付回调验签入账、退款申请和退款回调适配器，但生产默认仍是 `PAYMENT_MODE=disabled`。申请微信支付商户号，配置商户 API 私钥、商户证书序列号、API v3 密钥、微信支付平台证书和 HTTPS 回调地址，完成沙箱/小额实付与退款验证后再把 Worker 与小程序的 `paymentMode` 同时切换为 `wechat`。
 2. **关闭开发登录**：Cloudflare 的 `ALLOW_DEV_AUTH=false`、`PAYMENT_MODE=disabled`、`WECHAT_PAY_ENABLED=false`，Fastify 生产环境还要设置 `NODE_ENV=production`。真实支付代码上线后再把支付模式切换为 `wechat` 并按支付实现启用开关。这样 `X-Admin-User-Id` / `X-User-Id`、`devOpenid` 和开发接口都不会作为登录依据。
 3. **更换密钥与口令**：`SESSION_SECRET`、数据库密码、默认管理员密码全部重置；密钥只放 Cloudflare Secret 或部署环境变量，不进入小程序包、GitHub 或 Notion。
 4. **配置微信登录**：在 Cloudflare `.secrets.json` 填入真实 `WECHAT_APP_ID` / `WECHAT_APP_SECRET` 后执行部署；新注册用户默认无角色，家长/教师身份需管理员在后台绑定。

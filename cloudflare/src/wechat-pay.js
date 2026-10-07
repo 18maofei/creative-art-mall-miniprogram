@@ -151,6 +151,26 @@ export async function createJsapiPayment(env, { order, openid }) {
   return { appId, timeStamp, nonceStr, package: packageValue, signType: 'RSA', paySign }
 }
 
+export async function createWechatRefund(env, { orderNo, outRefundNo, amount, reason }) {
+  if (!wechatPayConfigReady(env)) throw new HttpError(503, '微信支付尚未完成配置')
+  const total = Math.round(Number(amount) * 100)
+  if (!Number.isInteger(total) || total <= 0) throw new HttpError(400, '退款金额不正确')
+  const notifySource = required(env, 'WECHAT_PAY_NOTIFY_URL')
+  const notifyUrl = String(env.WECHAT_PAY_REFUND_NOTIFY_URL || '').trim() || notifySource.replace(/\/notify\/?$/, '/refund-notify')
+  const requestBody = JSON.stringify({
+    out_trade_no: String(orderNo), out_refund_no: String(outRefundNo), reason: String(reason || '用户申请退款').slice(0, 80),
+    notify_url: notifyUrl,
+    amount: { refund: total, total, currency: 'CNY' }
+  })
+  const response = await signedWechatRequest(env, '/v3/refund/domestic/refunds', requestBody)
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok || !payload.out_refund_no) {
+    console.error('wechat refund request failed', response.status, payload)
+    throw new HttpError(response.status === 400 ? 400 : 502, payload.message || '微信退款申请失败')
+  }
+  return payload
+}
+
 export async function verifyWechatNotification(env, request, rawBody) {
   const timestamp = String(request.headers.get('Wechatpay-Timestamp') || '')
   const nonce = String(request.headers.get('Wechatpay-Nonce') || '')

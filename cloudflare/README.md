@@ -118,7 +118,7 @@ Cloudflare 会在部署时校验四个必填密钥。部署后首次使用 `ADMI
 `WECHAT_APP_SECRET`、微信支付商户密钥、R2 Access Key 等敏感信息；微信小程序后台还需要
 把该域名加入 request 合法域名。
 
-Worker 已包含微信支付 V3 JSAPI 下单、回调验签解密和幂等入账适配器，但生产默认仍保持 `PAYMENT_MODE=disabled`。正式开放报名和商城付款前，必须填写商户 API 私钥、商户证书序列号、API v3 密钥、平台证书和 HTTPS 回调地址，并完成微信侧配置与小额实付验证，再将 Worker 与小程序的 `paymentMode` 同时切换为 `wechat`。退款仍未接入支付渠道，不能仅通过修改订单字段伪造退款。
+Worker 已包含微信支付 V3 JSAPI 下单、支付回调验签入账、退款申请和退款回调适配器，但生产默认仍保持 `PAYMENT_MODE=disabled`。正式开放报名和商城付款前，必须填写商户 API 私钥、商户证书序列号、API v3 密钥、平台证书和 HTTPS 回调地址，并完成微信侧支付与退款验证，再将 Worker 与小程序的 `paymentMode` 同时切换为 `wechat`。退款回调地址默认由支付回调地址的 `/notify` 替换为 `/refund-notify`，也可通过 `WECHAT_PAY_REFUND_NOTIFY_URL` 单独指定。
 
 ## 身份与权限
 

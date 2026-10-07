@@ -1,7 +1,8 @@
-import { all, first, run, batch, changedRows, lastInsertId, bodyOf, id, text, ok, HttpError, isoNow, requireAdmin, requirePermission, passwordHash, passwordMatches, sessionFor, serializeCourse, serializeProduct, serializeUser, serializeOrder, statusToDb, loadActiveUser, normalizeRole, roleCode, roleName, ROLE_DEFINITIONS, DEFAULT_ROLE_PERMISSIONS, bytesToHex, encodeBase64Url } from './core.js'
+import { all, first, run, batch, changedRows, lastInsertId, bodyOf, id, text, ok, json, HttpError, isoNow, requireAdmin, requirePermission, passwordHash, passwordMatches, sessionFor, serializeCourse, serializeProduct, serializeUser, serializeOrder, statusToDb, loadActiveUser, normalizeRole, roleCode, roleName, ROLE_DEFINITIONS, DEFAULT_ROLE_PERMISSIONS, bytesToHex, encodeBase64Url } from './core.js'
 import { balanceOf, applyLedger } from './lessons.js'
-import { canTransition, payOrder, cancelOrder } from './orders.js'
+import { canTransition, payOrder, cancelOrder, completeWechatRefund } from './orders.js'
 import { createUploadUrl } from './storage.js'
+import { createWechatRefund, verifyWechatNotification, wechatPayConfigReady } from './wechat-pay.js'
 import { notifyUsers, sendTrialWechatNotification } from './notifications.js'
 
 const COURSE_FIELDS = [
@@ -558,7 +559,8 @@ export function registerAdminRoutes(router) {
   router.get('/api/admin/orders', guard(async ctx => {
     const orders = await all(ctx.db, 'SELECT orders.*, users.display_name AS buyer_name FROM orders JOIN users ON users.id = orders.buyer_user_id ORDER BY orders.id DESC')
     const items = orders.length ? await all(ctx.db, `SELECT * FROM order_items WHERE order_id IN (${placeholders(orders.map(order => order.id))}) ORDER BY id`, orders.map(order => order.id)) : []
-    return ok(orders.map(order => serializeOrder(order, items.filter(item => Number(item.order_id) === Number(order.id)))))
+    const refunds = orders.length ? await all(ctx.db, `SELECT * FROM refund_records WHERE order_id IN (${placeholders(orders.map(order => order.id))}) ORDER BY id DESC`, orders.map(order => order.id)) : []
+    return ok(orders.map(order => ({ ...serializeOrder(order, items.filter(item => Number(item.order_id) === Number(order.id))), refund_status: refunds.find(refund => Number(refund.order_id) === Number(order.id))?.status || null })))
   }))
 
   router.patch('/api/admin/orders/:id', guard(async ctx => {
@@ -589,6 +591,58 @@ export function registerAdminRoutes(router) {
     await run(ctx.db, `UPDATE orders SET ${fields.join(', ')} WHERE id = ?`, params)
     return ok({ id: orderId, status })
   }))
+
+  router.post('/api/admin/orders/:id/refund', guard(async ctx => {
+    const orderId = id(ctx.params.id, 'id')
+    const body = await bodyOf(ctx)
+    const order = await first(ctx.db, 'SELECT * FROM orders WHERE id = ?', [orderId])
+    if (!order) throw new HttpError(404, '订单不存在')
+    if (!['PAID', 'SHIPPED', 'COMPLETED'].includes(order.status)) throw new HttpError(400, '当前订单状态不能退款')
+    const existing = await first(ctx.db, 'SELECT * FROM refund_records WHERE order_id = ?', [orderId])
+    if (existing?.status === 'SUCCESS') return ok({ id: orderId, status: 'REFUNDED', refundStatus: 'SUCCESS' })
+    if (existing?.status === 'PROCESSING') return ok({ id: orderId, status: order.status, refundStatus: 'PROCESSING', outRefundNo: existing.out_refund_no })
+    const payment = await first(ctx.db, "SELECT transaction_id FROM payment_records WHERE order_id = ? AND status = 'SUCCESS' ORDER BY id DESC LIMIT 1", [orderId])
+    if (!payment?.transaction_id) throw new HttpError(409, '订单缺少微信支付流水，无法发起退款')
+    if (!wechatPayConfigReady(ctx.env)) throw new HttpError(503, '微信支付尚未完成配置')
+    const reason = String(body.reason || '后台审核退款').trim().slice(0, 80) || '后台审核退款'
+    const outRefundNo = `RF${order.order_no}${Date.now()}`.slice(0, 64)
+    const now = isoNow()
+    let refundRecord
+    if (existing) {
+      await run(ctx.db, "UPDATE refund_records SET out_refund_no = ?, status = 'PROCESSING', amount = ?, reason = ?, refund_id = NULL, raw_payload = NULL, updated_at = ?, success_at = NULL WHERE id = ?", [outRefundNo, Number(order.total_amount), reason, now, existing.id])
+      refundRecord = { id: Number(existing.id), order_id: orderId, out_refund_no: outRefundNo, status: 'PROCESSING' }
+    } else {
+      const created = await run(ctx.db, `INSERT INTO refund_records (order_id, out_refund_no, status, amount, reason, created_at, updated_at) VALUES (?, ?, 'PROCESSING', ?, ?, ?, ?)`, [orderId, outRefundNo, Number(order.total_amount), reason, now, now])
+      refundRecord = { id: lastInsertId(created), order_id: orderId, out_refund_no: outRefundNo, status: 'PROCESSING' }
+    }
+    try {
+      const payload = await createWechatRefund(ctx.env, { orderNo: order.order_no, outRefundNo, amount: order.total_amount, reason })
+      await run(ctx.db, 'UPDATE refund_records SET refund_id = ?, raw_payload = ?, updated_at = ? WHERE id = ?', [payload.refund_id || null, JSON.stringify(payload), isoNow(), refundRecord.id])
+      if (payload.status === 'SUCCESS') return ok(await completeWechatRefund(ctx.db, { ...refundRecord, refund_id: payload.refund_id }, payload))
+      return ok({ id: orderId, status: order.status, refundStatus: payload.status || 'PROCESSING', outRefundNo })
+    } catch (error) {
+      await run(ctx.db, "UPDATE refund_records SET status = 'ABNORMAL', raw_payload = ?, updated_at = ? WHERE id = ?", [JSON.stringify({ message: error.message }), isoNow(), refundRecord.id]).catch(() => undefined)
+      throw error
+    }
+  }))
+
+  router.post('/api/payments/wechat/refund-notify', async ctx => {
+    if (!wechatPayConfigReady(ctx.env)) return json({ code: 'FAIL', message: 'payment unavailable' }, 503)
+    const rawBody = await ctx.request.text()
+    try {
+      const payload = await verifyWechatNotification(ctx.env, ctx.request, rawBody)
+      const outRefundNo = text(payload.out_refund_no, 'out_refund_no')
+      const record = await first(ctx.db, 'SELECT * FROM refund_records WHERE out_refund_no = ?', [outRefundNo])
+      if (!record) throw new HttpError(404, '退款记录不存在')
+      const refundStatus = String(payload.refund_status || '').toUpperCase()
+      if (refundStatus === 'SUCCESS') await completeWechatRefund(ctx.db, record, payload)
+      else await run(ctx.db, 'UPDATE refund_records SET status = ?, raw_payload = ?, updated_at = ? WHERE id = ?', [['CLOSED', 'ABNORMAL'].includes(refundStatus) ? refundStatus : 'PROCESSING', JSON.stringify(payload), isoNow(), record.id])
+      return json({ code: 'SUCCESS', message: '成功' })
+    } catch (error) {
+      console.error('wechat refund notify failed', error)
+      return json({ code: 'FAIL', message: '退款回调处理失败' }, Number(error?.status) >= 400 && Number(error.status) < 500 ? Number(error.status) : 500)
+    }
+  })
 
   // ---------- 学员档案与课时 ----------
   router.get('/api/admin/children', guard(async ctx => {

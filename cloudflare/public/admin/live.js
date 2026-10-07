@@ -182,13 +182,17 @@ async function deleteArtwork(artworkId) {
 }
 function orderActions(order) {
   const buttons = []
+  if (order.refund_status === 'PROCESSING') return '<span class="tag orange">退款处理中</span>'
+  if (order.refund_status === 'SUCCESS' || order.status === 'REFUNDED') return '<span class="tag green">退款成功</span>'
   if (order.status === 'PENDING_PAYMENT') { buttons.push(`<button class="table-action" onclick="patchOrder(${order.id},'PAID')">标记已支付</button>`); buttons.push(`<button class="table-action" style="color:#d65762" onclick="patchOrder(${order.id},'CANCELLED')">取消</button>`) }
   if (order.status === 'PAID') { buttons.push(`<button class="table-action" onclick="shipOrder(${order.id})">发货</button>`); buttons.push(`<button class="table-action" onclick="patchOrder(${order.id},'COMPLETED')">直接完成</button>`) }
   if (order.status === 'SHIPPED') buttons.push(`<button class="table-action" onclick="patchOrder(${order.id},'COMPLETED')">标记完成</button>`)
+  if (['PAID', 'SHIPPED', 'COMPLETED'].includes(order.status)) buttons.push(`<button class="table-action" style="color:#d65762" onclick="refundOrder(${order.id})">申请退款</button>`)
   return buttons.join('') || '—'
 }
 async function patchOrder(orderId, status) { try { await api(`/admin/orders/${orderId}`, { method: 'PATCH', body: JSON.stringify({ status }) }); toast('订单状态已更新'); render() } catch (error) { toast(error.message) } }
 function shipOrder(orderId) { customModal('订单发货', formField('运单号', 'trackingNo'), data => api(`/admin/orders/${orderId}`, { method: 'PATCH', body: JSON.stringify({ status: 'SHIPPED', trackingNo: data.trackingNo }) }).then(() => toast('已发货'))) }
+function refundOrder(orderId) { customModal('申请退款', '<div class="field"><label>退款原因</label><textarea name="reason" maxlength="80" placeholder="例如：用户申请退款"></textarea></div>', data => api(`/admin/orders/${orderId}/refund`, { method: 'POST', body: JSON.stringify({ reason: data.reason || '后台审核退款' }) }).then(() => toast('退款申请已提交，等待微信支付处理'))) }
 async function orders() { const list = await api('/admin/orders'); return `<div class="page-head"><div><h2>订单管理</h2><p>课程与商品订单状态实时同步，支持支付确认、发货与完成操作。</p></div><button class="secondary" onclick="render()">↻ 刷新</button></div><section class="panel table-panel"><table><thead><tr><th>订单号</th><th>用户</th><th>内容</th><th>金额</th><th>状态</th><th>物流</th><th>操作</th></tr></thead><tbody>${list.map(order => `<tr><td>${escapeHtml(order.order_no)}</td><td>${escapeHtml(order.buyer_name)}</td><td>${escapeHtml((order.items || []).map(item => `${item.name} ×${item.quantity}`).join('、') || order.subject_title || '—')}</td><td>${money(order.total_amount ?? order.amount)}</td><td>${tag(order.status)}</td><td>${escapeHtml(order.tracking_no || '—')}</td><td>${orderActions(order)}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">暂无订单</td></tr>'}</tbody></table></section>` }
 
 // ---------- 学员管理 ----------
