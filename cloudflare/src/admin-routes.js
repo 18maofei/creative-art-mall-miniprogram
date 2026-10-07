@@ -2,6 +2,7 @@ import { all, first, run, batch, changedRows, lastInsertId, bodyOf, id, text, ok
 import { balanceOf, applyLedger } from './lessons.js'
 import { canTransition, payOrder, cancelOrder } from './orders.js'
 import { createUploadUrl } from './storage.js'
+import { notifyUsers } from './notifications.js'
 
 const COURSE_FIELDS = [
   [['title', 'name'], 'name'], [['category'], 'category'], [['ageRange', 'age_range'], 'age_range'],
@@ -249,6 +250,19 @@ export function registerAdminRoutes(router) {
   }))
 
   // ---------- 试听预约 ----------
+  router.get('/api/admin/notifications', guard(async (ctx, operator) => {
+    const rows = await all(ctx.db, `
+      SELECT id, type, title, body, data_json, related_type, related_id, read_at, created_at
+      FROM notifications WHERE recipient_user_id = ? ORDER BY id DESC LIMIT 50
+    `, [operator.id])
+    const unread = await first(ctx.db, 'SELECT COUNT(*) AS total FROM notifications WHERE recipient_user_id = ? AND read_at IS NULL', [operator.id])
+    return ok({ unreadCount: Number(unread?.total || 0), items: rows.map(row => ({
+      id: Number(row.id), type: row.type, title: row.title, body: row.body,
+      data: row.data_json ? JSON.parse(row.data_json) : {}, relatedId: row.related_id ? Number(row.related_id) : null,
+      read: Boolean(row.read_at), createdAt: row.created_at
+    })) })
+  }))
+
   router.get('/api/admin/trial-appointments', guard(async ctx => {
     const status = String(ctx.url.searchParams.get('status') || '').trim().toUpperCase()
     const params = []
@@ -279,7 +293,11 @@ export function registerAdminRoutes(router) {
     const body = await bodyOf(ctx)
     const status = String(body.status || '').trim().toUpperCase()
     if (!['PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'].includes(status)) throw new HttpError(400, '预约状态不正确')
-    const appointment = await first(ctx.db, 'SELECT id FROM trial_appointments WHERE id = ?', [appointmentId])
+    const appointment = await first(ctx.db, `
+      SELECT trial_appointments.*, courses.name AS course_title
+      FROM trial_appointments LEFT JOIN courses ON courses.id = trial_appointments.course_id
+      WHERE trial_appointments.id = ?
+    `, [appointmentId])
     if (!appointment) throw new HttpError(404, '试听预约不存在')
     const handledNote = body.handledNote === null || body.handledNote === undefined || String(body.handledNote).trim() === ''
       ? null : boundedText(body.handledNote, 'handledNote', 500)
@@ -291,6 +309,18 @@ export function registerAdminRoutes(router) {
       SET status = ?, handled_by_user_id = ?, handled_note = ?, handled_at = ?, updated_at = ?
       WHERE id = ?
     `, [status, handledBy, handledNote, handledAt, now, appointmentId])
+    if (appointment.status !== status && appointment.user_id) {
+      const label = status === 'CONFIRMED' ? '已确认' : status === 'CANCELLED' ? '已取消' : status === 'COMPLETED' ? '已完成' : '待确认'
+      const note = handledNote ? ` 备注：${handledNote}` : ''
+      await notifyUsers(ctx.db, [appointment.user_id], {
+        type: 'TRIAL_APPOINTMENT_UPDATED',
+        title: `试听预约${label}`,
+        body: `${appointment.course_title ? `“${appointment.course_title}”` : '试听预约'}的审核状态已更新为${label}。${note}`,
+        data: { page: 'trial-appointments', appointmentId },
+        relatedType: 'TRIAL_APPOINTMENT', relatedId: appointmentId,
+        dedupeKey: `trial-status:${appointmentId}:${status}:${now}`
+      })
+    }
     return ok({ id: appointmentId, status })
   }))
 

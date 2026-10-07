@@ -5,6 +5,7 @@
     "pages/course-detail/index",
     "pages/trial-appointment/index",
     "pages/trial-appointments/index",
+    "pages/notifications/index",
     "pages/gallery/index",
     "pages/shop/index",
     "pages/orders/index",

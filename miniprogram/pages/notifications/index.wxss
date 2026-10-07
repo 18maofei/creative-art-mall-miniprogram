@@ -1,0 +1,21 @@
+.notifications-page { min-height: 100vh; box-sizing: border-box; padding: 34rpx 28rpx 90rpx; background: #f3f6f3; }
+.notifications-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18rpx; margin-bottom: 28rpx; }
+.notifications-head > view { display: flex; min-width: 0; flex-direction: column; gap: 8rpx; }
+.eyebrow { color: #8a9b91; font-size: 20rpx; letter-spacing: 2rpx; }
+.head-title { color: #173f34; font-size: 44rpx; font-weight: 700; line-height: 1.2; }
+.head-copy { color: #78877f; font-size: 24rpx; line-height: 1.5; }
+.read-all { flex: 0 0 auto; margin: 16rpx 0 0; padding: 12rpx 18rpx; border: 1rpx solid #c9dcd1; border-radius: 18rpx; background: #fff; color: #24664f; font-size: 23rpx; line-height: 1.4; }
+.notification-list { display: flex; flex-direction: column; gap: 14rpx; }
+.notification-card { display: flex; align-items: flex-start; gap: 18rpx; padding: 24rpx 22rpx; border: 1rpx solid #e5eee8; border-radius: 22rpx; background: #fff; box-shadow: 0 8rpx 24rpx rgba(35,72,54,.04); }
+.notification-card.is-unread { border-color: #cfe4d7; background: #fbfffc; }
+.notification-dot { width: 14rpx; height: 14rpx; flex: 0 0 auto; margin-top: 8rpx; border-radius: 50%; background: #24664f; }
+.is-read .notification-dot { background: #d2ddd6; }
+.notification-copy { min-width: 0; flex: 1; }
+.notification-title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12rpx; }
+.notification-title { color: #214b3e; font-size: 28rpx; font-weight: 600; }
+.notification-time { flex: 0 0 auto; color: #93a098; font-size: 20rpx; }
+.notification-body { display: block; margin-top: 12rpx; color: #718078; font-size: 24rpx; line-height: 1.6; }
+.empty-state { display: flex; min-height: 420rpx; align-items: center; justify-content: center; gap: 12rpx; color: #66766f; font-size: 27rpx; flex-direction: column; text-align: center; }
+.empty-icon { color: #1b6a56; font-size: 70rpx; line-height: .5; }
+.empty-copy { color: #99a39d; font-size: 22rpx; }
+@import "../../styles/customer.wxss";

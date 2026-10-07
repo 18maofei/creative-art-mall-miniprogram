@@ -8,6 +8,9 @@ const pageInfo = {
 const navItems = [['dashboard', '▦', '仪表盘'], ['users', '♙', '用户管理'], ['access', '♢', '身份与权限'], ['children', '☺', '学员管理'], ['courses', '▣', '课程管理'], ['schedule', '▥', '排课管理'], ['leaves', '✈', '请假审批'], ['trials', '◷', '试听预约'], ['products', '♧', '商品管理'], ['artworks', '◈', '作品管理'], ['resources', '▤', '资源中心'], ['orders', '☷', '订单管理'], ['reports', '◌', '数据报表'], ['announcements', '♢', '公告管理'], ['settings', '⚙', '系统设置']]
 const navPermissions = { dashboard: 'dashboard.read', users: 'user.read', access: 'identity.manage', children: 'child.read', courses: 'course.read', schedule: 'schedule.read', leaves: 'leave.read', trials: 'trial.read', products: 'product.read', artworks: 'artwork.read', resources: 'resource.read', orders: 'order.read', reports: 'report.read', announcements: 'announcement.read', settings: 'settings.manage' }
 
+pageInfo.notifications = ['消息通知', '查看预约和服务提醒']
+navItems.splice(1, 0, ['notifications', '•', '消息通知'])
+navPermissions.notifications = 'admin.access'
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char])) }
 function safeUrl(value) { const raw = String(value || '').trim(); return /^(https?:\/\/|\/api\/assets\/)/i.test(raw) ? escapeHtml(raw) : '' }
 function toast(message) { const el = $('#toast'); el.textContent = message; el.classList.add('show'); clearTimeout(window.toastTimer); window.toastTimer = setTimeout(() => el.classList.remove('show'), 2200) }
@@ -276,6 +279,10 @@ function logout() {
   toast('已退出登录')
   render()
 }
+async function adminNotifications() {
+  const result = await api('/admin/notifications')
+  return `<div class="page-head"><div><h2>消息通知</h2><p>新试听预约和审核结果会在这里提醒。</p></div><button class="secondary" onclick="render()">↻ 刷新</button></div><section class="panel table-panel"><table><thead><tr><th>状态</th><th>消息</th><th>时间</th></tr></thead><tbody>${(result.items || []).map(item => `<tr><td>${item.read ? '<span class="tag">已读</span>' : '<span class="tag orange">未读</span>'}</td><td><b>${escapeHtml(item.title)}</b><small style="display:block;color:#75827c;margin-top:4px">${escapeHtml(item.body)}</small></td><td>${fmtTime(item.createdAt)}</td></tr>`).join('') || '<tr><td colspan="3" class="empty">暂无消息</td></tr>'}</tbody></table></section>`
+}
 async function render() {
   if (state.token && !state.user) await refreshIdentity()
   syncHeader()
@@ -292,6 +299,7 @@ async function render() {
   const page = pageInfo[state.page]; $('#headerTitle').textContent = page[0]; $('#headerDesc').textContent = page[1]; renderNav()
   try {
     if (state.page === 'dashboard') $('#content').innerHTML = await dashboard()
+    else if (state.page === 'notifications') $('#content').innerHTML = await adminNotifications()
     else if (state.page === 'users') { cachedUsers = await api('/admin/users'); $('#content').innerHTML = await users() }
     else if (state.page === 'access') $('#content').innerHTML = await accessPage()
     else if (['courses', 'products', 'resources'].includes(state.page)) { cachedContent[state.page] = await api(`/admin/${state.page}`); $('#content').innerHTML = await contentList(state.page) }

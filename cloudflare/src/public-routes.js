@@ -1,6 +1,7 @@
 import { all, first, run, lastInsertId, bodyOf, id, text, ok, requireUser, isoNow } from './core.js'
 import { serializeCourse, serializeProduct, HttpError } from './core.js'
 import { getAsset, normalizeKey, putAsset, verifyUploadToken } from './storage.js'
+import { notifyUsers, trialNotificationRecipients } from './notifications.js'
 
 async function loadProducts(db, limit = null) {
   const sql = `SELECT * FROM products WHERE status = 'ON_SALE' ORDER BY id DESC${limit ? ' LIMIT ?' : ''}`
@@ -127,6 +128,15 @@ export function registerPublicRoutes(router) {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [current?.id || null, guardianName, mobile, childName, childAge, courseId, preferredDate, preferredTime, note, idempotencyKey, now, now])
       const appointment = await trialAppointmentRow(ctx.db, lastInsertId(result))
+      const recipients = await trialNotificationRecipients(ctx.db, courseId)
+      await notifyUsers(ctx.db, recipients, {
+        type: 'TRIAL_APPOINTMENT_CREATED',
+        title: '新的试听预约待处理',
+        body: `${guardianName}为${childName}提交了${appointment.course_title ? `“${appointment.course_title}”` : '试听'}预约，请及时审核。`,
+        data: { page: 'trial-appointments', appointmentId: Number(appointment.id) },
+        relatedType: 'TRIAL_APPOINTMENT', relatedId: appointment.id,
+        dedupeKey: `trial-created:${appointment.id}`
+      })
       return ok({ appointment: serializeTrialAppointment(appointment), duplicate: false }, 201)
     } catch (error) {
       if (idempotencyKey && /unique|constraint/i.test(String(error?.message || ''))) {

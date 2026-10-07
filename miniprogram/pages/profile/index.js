@@ -11,6 +11,7 @@ const GUEST_SHORTCUTS = [
 const MEMBER_ACTIONS = [
   { key: 'study', icon: '▱', title: '我的学习', copy: '课程、预约、学习记录' },
   { key: 'appointment', icon: '◷', title: '我的预约', copy: '查看试听安排与确认进度' },
+  { key: 'notifications', icon: '•', title: '消息通知', copy: '查看预约审核和服务提醒' },
   { key: 'favorite', icon: '★', title: '我的收藏', copy: '课程与作品收藏' },
   { key: 'order', icon: '▣', title: '我的订单', copy: '查看订单状态与物流' },
   { key: 'address', icon: '⌖', title: '收货地址', copy: '管理收货地址信息' },
@@ -40,6 +41,7 @@ Page({
     roleLabel: '艺术爱好者',
     courseCount: 0,
     favoriteCount: 0,
+    notificationCount: 0,
     guestShortcuts: GUEST_SHORTCUTS,
     memberActions: MEMBER_ACTIONS
   },
@@ -50,12 +52,14 @@ Page({
       if (this.data.loggingIn) return
       this.setData({
         loggedIn: false, displayName: '艺术好朋友', avatarUrl: '', avatarInitial: '艺', roleLabel: '艺术爱好者',
-        courseCount: 0, favoriteCount: 0
+        courseCount: 0, favoriteCount: 0, notificationCount: 0
       })
       return
     }
     const name = user.name || '微信用户'
     const courseCount = await this.learnedCourseCount(user)
+    let notificationCount = 0
+    try { notificationCount = Number((await api.notifications(1)).unreadCount || 0) } catch {}
     this.setData({
       loggedIn: true,
       displayName: name,
@@ -63,7 +67,8 @@ Page({
       avatarInitial: name.slice(0, 1) || '微',
       roleLabel: this.roleLabel(),
       courseCount,
-      favoriteCount: favorites.list(user.id).length
+      favoriteCount: favorites.list(user.id).length,
+      notificationCount
     })
   },
   roleLabel() { return '艺术爱好者' },
@@ -117,6 +122,7 @@ Page({
   openAction(key) {
     if (key === 'study') return this.goLearning()
     if (key === 'appointment') return this.goAppointments()
+    if (key === 'notifications') return wx.navigateTo({ url: '/pages/notifications/index' })
     if (key === 'artwork') return wx.navigateTo({ url: '/pages/gallery/index' })
     if (key === 'favorite') return wx.navigateTo({ url: '/pages/favorites/index' })
     if (key === 'order') return wx.navigateTo({ url: '/pages/orders/index' })

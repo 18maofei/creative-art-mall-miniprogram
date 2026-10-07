@@ -33,7 +33,7 @@
     <view class="member-actions">
       <view class="action-row" wx:for="{{memberActions}}" wx:key="key" data-key="{{item.key}}" bindtap="openMemberAction">
         <view class="action-icon action-{{item.key}}"><text>{{item.icon}}</text></view>
-        <view class="action-copy"><text class="action-title">{{item.title}}</text><text class="action-subtitle">{{item.copy}}</text></view>
+        <view class="action-copy"><text class="action-title">{{item.title}}<text wx:if="{{item.key === 'notifications' && notificationCount}}" class="notification-badge">{{notificationCount > 99 ? '99+' : notificationCount}}</text></text><text class="action-subtitle">{{item.copy}}</text></view>
         <text class="arrow">›</text>
       </view>
     </view>

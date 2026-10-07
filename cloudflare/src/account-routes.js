@@ -65,6 +65,35 @@ function serializeLessonEntry(row) {
 }
 
 export function registerAccountRoutes(router) {
+  router.get('/api/notifications', async ctx => {
+    const current = await requireUser(ctx)
+    const limit = Math.min(Math.max(Number(ctx.url.searchParams.get('limit') || 50), 1), 100)
+    const rows = await all(ctx.db, `
+      SELECT id, type, title, body, data_json, related_type, related_id, read_at, created_at
+      FROM notifications WHERE recipient_user_id = ? ORDER BY id DESC LIMIT ?
+    `, [current.id, limit])
+    const unread = await first(ctx.db, 'SELECT COUNT(*) AS total FROM notifications WHERE recipient_user_id = ? AND read_at IS NULL', [current.id])
+    return ok({ unreadCount: Number(unread?.total || 0), items: rows.map(row => ({
+      id: Number(row.id), type: row.type, title: row.title, body: row.body,
+      data: row.data_json ? JSON.parse(row.data_json) : {}, relatedType: row.related_type || null,
+      relatedId: row.related_id ? Number(row.related_id) : null, read: Boolean(row.read_at), readAt: row.read_at || null, createdAt: row.created_at
+    })) })
+  })
+
+  router.post('/api/notifications/:id/read', async ctx => {
+    const current = await requireUser(ctx)
+    const notificationId = Number(ctx.params.id)
+    if (!Number.isInteger(notificationId) || notificationId < 1) throw new HttpError(400, '通知编号不正确')
+    await run(ctx.db, 'UPDATE notifications SET read_at = COALESCE(read_at, ?) WHERE id = ? AND recipient_user_id = ?', [isoNow(), notificationId, current.id])
+    return ok({ id: notificationId, read: true })
+  })
+
+  router.post('/api/notifications/read-all', async ctx => {
+    const current = await requireUser(ctx)
+    await run(ctx.db, 'UPDATE notifications SET read_at = COALESCE(read_at, ?) WHERE recipient_user_id = ? AND read_at IS NULL', [isoNow(), current.id])
+    return ok({ read: true })
+  })
+
   // 资料更新只使用当前 Bearer 会话，不接受前端传入 userId，避免越权修改他人资料。
   router.patch('/api/users/profile', async ctx => {
     const current = await requireUser(ctx)

@@ -129,6 +129,9 @@ function deleteAddress(userId, addressId) { return request(`/api/users/${userId}
 function leaveRequests(userId) { return request(`/api/users/${userId}/leave-requests`) }
 function createLeaveRequest(payload) { return request('/api/leave-requests', 'POST', payload) }
 function userFeedback(userId) { return request(`/api/users/${userId}/feedback`) }
+function notifications(limit) { return request(`/api/notifications${limit ? `?limit=${encodeURIComponent(limit)}` : ''}`) }
+function markNotificationRead(notificationId) { return request(`/api/notifications/${notificationId}/read`, 'POST') }
+function markAllNotificationsRead() { return request('/api/notifications/read-all', 'POST') }
 
 // ---------- 教师 ----------
 function teacherSessions(userId) { return request(`/api/teacher/${userId}/sessions`) }
@@ -181,7 +184,7 @@ module.exports = {
   bootstrap, courses, products, artworks, announcements, createTrialAppointment,
   userDashboard, userOrders, userTrialAppointments, lessonLedger, orderStatus, createOrder, mockPay, wechatPay, confirmReceipt, cancelOrder,
   addresses, createAddress, updateAddress, deleteAddress,
-  leaveRequests, createLeaveRequest, userFeedback,
+  leaveRequests, createLeaveRequest, userFeedback, notifications, markNotificationRead, markAllNotificationsRead,
   teacherSessions, attendance, confirmAttendance, submitSessionFeedback,
   adminOverview, adminAnalytics,
   adminCourses, createCourse,

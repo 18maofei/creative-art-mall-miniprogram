@@ -1,0 +1,14 @@
+<view class="page notifications-page">
+  <view class="notifications-head">
+    <view><text class="eyebrow">PURE ART CULTURE</text><text class="head-title">消息通知</text><text class="head-copy">预约进度和服务提醒都会记录在这里</text></view>
+    <button class="read-all" wx:if="{{unreadCount}}" bindtap="markAllRead">全部已读</button>
+  </view>
+  <page-state error="{{loadError}}" bind:retry="retry" />
+  <view wx:if="{{loading}}" class="empty-state">正在加载消息...</view>
+  <view wx:elif="{{!loadError && !items.length}}" class="empty-state"><text class="empty-icon">·</text><text>暂时没有新消息</text><text class="empty-copy">新的预约和审核结果会显示在这里</text></view>
+  <view wx:else class="notification-list">
+    <view class="notification-card {{item.read ? 'is-read' : 'is-unread'}}" wx:for="{{items}}" wx:key="id" data-id="{{item.id}}" bindtap="markRead">
+      <view class="notification-dot"></view><view class="notification-copy"><view class="notification-title-row"><text class="notification-title">{{item.title}}</text><text class="notification-time">{{item.createdLabel}}</text></view><text class="notification-body">{{item.body}}</text></view>
+    </view>
+  </view>
+</view>
