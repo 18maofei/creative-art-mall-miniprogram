@@ -16,7 +16,7 @@
     </view>
     <view class="nickname-section">
       <view class="field-heading"><text class="field-label">我的昵称</text><text class="field-optional">你希望被如何称呼</text></view>
-      <input class="nickname-input" value="{{nickname}}" type="nickname" maxlength="80" placeholder="输入你的昵称" placeholder-class="input-placeholder" disabled="{{loading || saving}}" bindinput="onNicknameInput" bindblur="onNicknameInput" />
+      <input class="nickname-input" name="nickname" value="{{nickname}}" type="nickname" maxlength="80" placeholder="输入你的昵称" placeholder-class="input-placeholder" disabled="{{loading || saving}}" bindinput="onNicknameInput" bindchange="onNicknameChange" bindblur="onNicknameInput" />
     </view>
   </view>
   <view class="account-panel">

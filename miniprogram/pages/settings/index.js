@@ -66,6 +66,10 @@ Page({
     const nickname = String(e.detail.value || '')
     this.setData({ nickname, dirty: Boolean(this.data.avatarPath) || nickname.trim() !== this.data.displayName, errorMessage: '' })
   },
+  onNicknameChange(e) {
+    // 微信昵称自动填充可能只触发 change，不一定触发 input。
+    this.onNicknameInput(e)
+  },
   async saveProfile() {
     if (this.data.loading || this.data.saving || this.data.choosing) return
     const nickname = String(this.data.nickname || '').trim()
