@@ -5,6 +5,7 @@
   "allowDevAuth": false,
   "paymentMode": "disabled",
   "wechatPayEnabled": false,
+  "wechatTrialTemplateId": "nFshfx1UoX1BmX8qmOoiHDUtQkdqAdsviEQKDkYfBbk",
   "demoMode": false,
   "allowInsecureHttp": false
 }

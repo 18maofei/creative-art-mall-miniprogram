@@ -22,6 +22,7 @@ const publicConfig = {
   allowDevAuth: config.allowDevAuth === true,
   paymentMode: String(config.paymentMode || 'disabled').toLowerCase(),
   wechatPayEnabled: config.wechatPayEnabled === true,
+  wechatTrialTemplateId: String(config.wechatTrialTemplateId || '').trim(),
   demoMode: config.demoMode === true,
   allowInsecureHttp: config.allowInsecureHttp === true
 }
@@ -37,7 +38,8 @@ wrangler.vars = {
   PAYMENT_MODE: publicConfig.paymentMode,
   WECHAT_PAY_ENABLED: String(publicConfig.wechatPayEnabled),
   CORS_ORIGIN: publicConfig.corsOrigin,
-  INSTITUTION_NAME: publicConfig.institutionName
+  INSTITUTION_NAME: publicConfig.institutionName,
+  WECHAT_TRIAL_TEMPLATE_ID: publicConfig.wechatTrialTemplateId
 }
 await writeFile(wranglerPath, `${JSON.stringify(wrangler, null, 2)}\n`, 'utf8')
 
@@ -46,7 +48,8 @@ const miniConfig = `/**\n * 此文件由 config/release.json 自动生成。请�
   institutionName: ${JSON.stringify(publicConfig.institutionName)},
   demoMode: ${String(publicConfig.demoMode)},
   allowInsecureHttp: ${String(publicConfig.allowInsecureHttp)},
-  paymentMode: ${JSON.stringify(publicConfig.paymentMode)}
+  paymentMode: ${JSON.stringify(publicConfig.paymentMode)},
+  wechatTrialTemplateId: ${JSON.stringify(publicConfig.wechatTrialTemplateId)}
 }\n`
 await writeFile(miniConfigPath, miniConfig, 'utf8')
 

@@ -240,7 +240,7 @@ export async function loadActiveUser(db, userId, requestedRole, allowDisabled = 
 
 let wechatAccessTokenCache = null
 
-async function wechatAccessToken(ctx) {
+export async function wechatAccessToken(ctx) {
   const appId = String(ctx.env.WECHAT_APP_ID || '')
   const appSecret = String(ctx.env.WECHAT_APP_SECRET || '')
   if (!appId || !appSecret) throw new HttpError(500, '服务端未配置微信 AppID，无法获取手机号')

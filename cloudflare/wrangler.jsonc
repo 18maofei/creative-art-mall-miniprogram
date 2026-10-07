@@ -10,7 +10,8 @@
     "WECHAT_PAY_ENABLED": "false",
     "CORS_ORIGIN": "https://artstudio.murphycai.top",
     "INSTITUTION_NAME": "纯粹艺术文化",
-    "EMAIL_FROM": "noreply@murphycai.top"
+    "EMAIL_FROM": "noreply@murphycai.top",
+    "WECHAT_TRIAL_TEMPLATE_ID": "nFshfx1UoX1BmX8qmOoiHDUtQkdqAdsviEQKDkYfBbk"
   },
   "secrets": {
     "required": [

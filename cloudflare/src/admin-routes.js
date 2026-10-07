@@ -2,7 +2,7 @@ import { all, first, run, batch, changedRows, lastInsertId, bodyOf, id, text, ok
 import { balanceOf, applyLedger } from './lessons.js'
 import { canTransition, payOrder, cancelOrder } from './orders.js'
 import { createUploadUrl } from './storage.js'
-import { notifyUsers } from './notifications.js'
+import { notifyUsers, sendTrialWechatNotification } from './notifications.js'
 
 const COURSE_FIELDS = [
   [['title', 'name'], 'name'], [['category'], 'category'], [['ageRange', 'age_range'], 'age_range'],
@@ -320,6 +320,9 @@ export function registerAdminRoutes(router) {
         relatedType: 'TRIAL_APPOINTMENT', relatedId: appointmentId,
         dedupeKey: `trial-status:${appointmentId}:${status}:${now}`
       })
+      if (['CONFIRMED', 'CANCELLED', 'COMPLETED'].includes(status)) {
+        try { await sendTrialWechatNotification(ctx, appointmentId, status, handledNote) } catch (error) { console.error('wechat trial notification exception', error) }
+      }
     }
     return ok({ id: appointmentId, status })
   }))

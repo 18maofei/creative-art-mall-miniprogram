@@ -103,6 +103,7 @@ function products() { return request('/api/products').then(rows => rows.map(norm
 function artworks(kind) { return request(`/api/artworks${kind ? `?kind=${encodeURIComponent(kind)}` : ''}`).then(rows => rows.map(normalizeArtwork)) }
 function announcements(audience) { return request(`/api/announcements${audience ? `?audience=${audience}` : ''}`) }
 function createTrialAppointment(payload) { return request('/api/trial-appointments', 'POST', payload) }
+function saveTrialSubscription(payload) { return request('/api/notifications/subscriptions', 'POST', payload) }
 
 // 身份和权限只从服务端会话快照读取；本地缓存仅用于携带会话令牌。
 function authMe() { return request('/api/auth/me') }
@@ -181,7 +182,7 @@ module.exports = {
   request, devContext, recordEvent, mediaUrl,
   authMe, switchRole, bindWechatPhone,
   updateProfile, uploadProfileAvatar,
-  bootstrap, courses, products, artworks, announcements, createTrialAppointment,
+  bootstrap, courses, products, artworks, announcements, createTrialAppointment, saveTrialSubscription,
   userDashboard, userOrders, userTrialAppointments, lessonLedger, orderStatus, createOrder, mockPay, wechatPay, confirmReceipt, cancelOrder,
   addresses, createAddress, updateAddress, deleteAddress,
   leaveRequests, createLeaveRequest, userFeedback, notifications, markNotificationRead, markAllNotificationsRead,

@@ -7,5 +7,6 @@ module.exports = {
   institutionName: "纯粹艺术文化",
   demoMode: false,
   allowInsecureHttp: false,
-  paymentMode: "disabled"
+  paymentMode: "disabled",
+  wechatTrialTemplateId: "nFshfx1UoX1BmX8qmOoiHDUtQkdqAdsviEQKDkYfBbk"
 }

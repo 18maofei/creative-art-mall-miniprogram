@@ -94,6 +94,20 @@ export function registerAccountRoutes(router) {
     return ok({ read: true })
   })
 
+  router.post('/api/notifications/subscriptions', async ctx => {
+    const current = await requireUser(ctx)
+    const body = await bodyOf(ctx)
+    const templateId = String(body.templateId || '').trim()
+    const expectedTemplateId = String(ctx.env.WECHAT_TRIAL_TEMPLATE_ID || '').trim()
+    const appointmentId = Number(body.appointmentId)
+    const status = String(body.status || '').trim().toLowerCase()
+    if (!expectedTemplateId || templateId !== expectedTemplateId) throw new HttpError(400, '订阅模板不正确')
+    if (!Number.isInteger(appointmentId) || appointmentId < 1) throw new HttpError(400, '预约编号不正确')
+    if (!await first(ctx.db, 'SELECT id FROM trial_appointments WHERE id = ? AND user_id = ?', [appointmentId, current.id])) throw new HttpError(404, '预约不存在')
+    if (status === 'accept') await run(ctx.db, `INSERT OR IGNORE INTO wechat_subscriptions (user_id, appointment_id, template_id, status, created_at) VALUES (?, ?, ?, 'ACCEPTED', ?)`, [current.id, appointmentId, templateId, isoNow()])
+    return ok({ accepted: status === 'accept' })
+  })
+
   // 资料更新只使用当前 Bearer 会话，不接受前端传入 userId，避免越权修改他人资料。
   router.patch('/api/users/profile', async ctx => {
     const current = await requireUser(ctx)

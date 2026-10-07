@@ -1,5 +1,6 @@
 const app = getApp()
-const { courses, createTrialAppointment } = require('../../services/api')
+const { courses, createTrialAppointment, saveTrialSubscription } = require('../../services/api')
+const config = require('../../config')
 
 Page({
   data: {
@@ -35,6 +36,15 @@ Page({
     const secureId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.floor(Math.random() * 100000)}`
     return `trial-${Date.now()}-${secureId}`
   },
+  requestSubscription() {
+    const templateId = String(config.wechatTrialTemplateId || '').trim()
+    if (!templateId || typeof wx.requestSubscribeMessage !== 'function') return Promise.resolve(null)
+    return new Promise(resolve => wx.requestSubscribeMessage({
+      tmplIds: [templateId],
+      success: result => resolve(result?.[templateId] || null),
+      fail: () => resolve(null)
+    }))
+  },
   async submit() {
     if (this.data.submitting) return
     const guardianName = String(this.data.guardianName || '').trim()
@@ -50,6 +60,7 @@ Page({
     this.setData({ submitting: true })
     try {
       if (!await app.ensureLogin()) throw new Error('请先登录，预约后可在我的预约查看进度')
+      const subscriptionStatus = await this.requestSubscription()
       const fingerprint = JSON.stringify([guardianName, mobile, childName, age, course?.id, this.data.preferredDate, this.data.preferredTime, this.data.note])
       if (fingerprint !== this.lastFingerprint) { this.lastFingerprint = fingerprint; this.pendingKey = this.buildIdempotencyKey() }
       const result = await createTrialAppointment({
@@ -60,6 +71,9 @@ Page({
         note: String(this.data.note || '').trim() || undefined,
         idempotencyKey: this.pendingKey
       })
+      if (subscriptionStatus && result.appointment?.id) {
+        await saveTrialSubscription({ appointmentId: result.appointment.id, templateId: config.wechatTrialTemplateId, status: subscriptionStatus }).catch(() => undefined)
+      }
       await new Promise(resolve => wx.showModal({
         title: result.duplicate ? '预约已提交' : '预约成功',
         content: '画室老师会尽快联系您确认试听时间，请保持电话畅通。',
