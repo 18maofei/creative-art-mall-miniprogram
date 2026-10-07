@@ -263,6 +263,12 @@ export function registerAdminRoutes(router) {
     })) })
   }))
 
+  router.post('/api/admin/notifications/:id/read', guard(async (ctx, operator) => {
+    const notificationId = id(ctx.params.id, 'id')
+    await run(ctx.db, 'UPDATE notifications SET read_at = COALESCE(read_at, ?) WHERE id = ? AND recipient_user_id = ?', [isoNow(), notificationId, operator.id])
+    return ok({ id: notificationId, read: true })
+  }))
+
   router.get('/api/admin/trial-appointments', guard(async ctx => {
     const status = String(ctx.url.searchParams.get('status') || '').trim().toUpperCase()
     const params = []

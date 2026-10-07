@@ -279,9 +279,16 @@ function logout() {
   toast('已退出登录')
   render()
 }
+async function openAdminNotification(notificationId, relatedId) {
+  api(`/admin/notifications/${Number(notificationId)}/read`, { method: 'POST' }).catch(() => undefined)
+  if (!Number(relatedId)) return
+  state.page = 'trials'
+  await render()
+  reviewTrial(Number(relatedId))
+}
 async function adminNotifications() {
   const result = await api('/admin/notifications')
-  return `<div class="page-head"><div><h2>消息通知</h2><p>新试听预约和审核结果会在这里提醒。</p></div><button class="secondary" onclick="render()">↻ 刷新</button></div><section class="panel table-panel"><table><thead><tr><th>状态</th><th>消息</th><th>时间</th></tr></thead><tbody>${(result.items || []).map(item => `<tr><td>${item.read ? '<span class="tag">已读</span>' : '<span class="tag orange">未读</span>'}</td><td><b>${escapeHtml(item.title)}</b><small style="display:block;color:#75827c;margin-top:4px">${escapeHtml(item.body)}</small></td><td>${fmtTime(item.createdAt)}</td></tr>`).join('') || '<tr><td colspan="3" class="empty">暂无消息</td></tr>'}</tbody></table></section>`
+  return `<div class="page-head"><div><h2>消息通知</h2><p>新试听预约和审核结果会在这里提醒。</p></div><button class="secondary" onclick="render()">↻ 刷新</button></div><section class="panel table-panel"><table><thead><tr><th>状态</th><th>消息</th><th>时间</th></tr></thead><tbody>${(result.items || []).map(item => `<tr class="notification-row" title="点击查看关联预约" onclick="openAdminNotification(${Number(item.id)}, ${Number(item.relatedId || 0)})"><td>${item.read ? '<span class="tag">已读</span>' : '<span class="tag orange">未读</span>'}</td><td><b>${escapeHtml(item.title)}</b><small style="display:block;color:#75827c;margin-top:4px">${escapeHtml(item.body)}</small></td><td>${fmtTime(item.createdAt)}</td></tr>`).join('') || '<tr><td colspan="3" class="empty">暂无消息</td></tr>'}</tbody></table></section>`
 }
 async function render() {
   if (state.token && !state.user) await refreshIdentity()
