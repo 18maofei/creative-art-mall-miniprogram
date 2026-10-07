@@ -62,6 +62,14 @@ Page({
       this.setData({ choosing: false })
     }
   },
+  onChooseWechatAvatar(e) {
+    const avatarPath = String(e.detail?.avatarUrl || '').trim()
+    if (!avatarPath) {
+      this.setData({ errorMessage: '没有获取到微信头像，请重试' })
+      return
+    }
+    this.setData({ avatarPath, avatarDraft: avatarPath, dirty: true, errorMessage: '' })
+  },
   onNicknameInput(e) {
     const nickname = String(e.detail.value || '')
     this.setData({ nickname, dirty: Boolean(this.data.avatarPath) || nickname.trim() !== this.data.displayName, errorMessage: '' })

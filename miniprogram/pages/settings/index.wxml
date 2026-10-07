@@ -6,7 +6,7 @@
   </view>
   <view class="profile-panel">
     <view class="avatar-section">
-      <button class="avatar-picker" bindtap="chooseAvatar" disabled="{{loading || saving || choosing}}" aria-label="更换头像" hover-class="avatar-pressed">
+      <button class="avatar-picker" open-type="chooseAvatar" bindchooseavatar="onChooseWechatAvatar" disabled="{{loading || saving || choosing}}" aria-label="选择微信头像" hover-class="avatar-pressed">
         <image wx:if="{{avatarDraft}}" class="avatar-image" src="{{avatarDraft}}" mode="aspectFill" />
         <view wx:else class="avatar-image avatar-fallback">{{avatarInitial}}</view>
         <view class="avatar-edit"><view class="camera-icon"><view class="camera-lens"></view></view></view>
