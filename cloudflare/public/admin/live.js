@@ -271,7 +271,10 @@ function editContent(kind, button) { openModal(kind.slice(0, -1), (cachedContent
 function syncHeader() {
   const name = state.token ? (state.adminName || state.user?.name || '管理员') : '未登录'
   $('#headerAdminName').textContent = name
-  $('#headerAvatar').textContent = name.slice(0, 1)
+  const avatar = String(state.user?.avatarUrl || state.user?.avatar_url || '').trim()
+  const avatarEl = $('#headerAvatar')
+  const avatarUrl = /^(https?:\/\/|\/api\/assets\/)/i.test(avatar) ? avatar : ''
+  avatarEl.innerHTML = avatarUrl ? `<img src="${escapeHtml(avatarUrl)}" alt="管理员头像" />` : escapeHtml(name.slice(0, 1))
   $('#logoutBtn').style.display = state.token ? '' : 'none'
 }
 function logout() {
