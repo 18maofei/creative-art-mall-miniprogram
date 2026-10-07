@@ -1,6 +1,6 @@
 # Cloudflare 后端迁移
 
-这里是拾色画室的 Cloudflare-only 后端：Workers API + D1 + R2。
+这里是纯粹艺术文化的 Cloudflare-only 后端：Workers API + D1 + R2。
 
 ## 运行时
 
@@ -45,7 +45,7 @@ npm run db:bootstrap-admin:remote
 {
   "apiBaseUrl": "https://你的Worker域名",
   "corsOrigin": "https://你的管理端域名",
-  "institutionName": "拾色画室",
+  "institutionName": "纯粹艺术文化",
   "allowDevAuth": false,
   "paymentMode": "disabled",
   "wechatPayEnabled": false,
