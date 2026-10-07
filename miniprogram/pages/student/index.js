@@ -5,11 +5,11 @@ Page({
   data: { userName: '同学', courses: [], artworks: [], loading: true },
   async onShow() {
     const user = await app.refreshUser().catch(() => null)
-    if (!user || !app.hasRole('STUDENT')) {
+    if (!user) {
       this.setData({ loading: false })
-      return wx.showToast({ title: '当前账号没有学生身份', icon: 'none' })
+      return wx.showToast({ title: '请先登录', icon: 'none' })
     }
-    recordEvent('page_view', 'student_dashboard', 'STUDENT')
+    recordEvent('page_view', 'student_dashboard', app.serverRole(user.currentRole) === 'STUDENT' ? 'STUDENT' : 'CUSTOMER')
     try {
       const [courseRows, artworkRows] = await Promise.all([courses().catch(() => []), artworks().catch(() => [])])
       this.setData({ userName: user.name || '同学', courses: courseRows.slice(0, 3), artworks: artworkRows.slice(0, 4), loading: false })

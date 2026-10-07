@@ -90,11 +90,13 @@ Page({
       const existing = await app.refreshUser().catch(() => null)
       if (existing) {
         await this.loadProfile(existing)
+        if (typeof app.redirectToRolePage === 'function') await app.redirectToRolePage(existing)
         return existing
       }
       const user = await app.login(undefined, phoneCode)
       // 登录接口已经返回完整用户资料，避免紧接着刷新失败把成功状态覆盖掉。
       await this.loadProfile(user)
+      if (typeof app.redirectToRolePage === 'function') await app.redirectToRolePage(user)
       return user
     } catch (error) {
       wx.showModal({ title: '登录失败', content: String(error?.message || error?.errMsg || '登录失败'), showCancel: false })
@@ -129,6 +131,6 @@ Page({
     if (key === 'address') return wx.navigateTo({ url: '/pages/address/index' })
     if (key === 'settings') return this.openSettings()
   },
-  goLearning() { wx.navigateTo({ url: '/pages/parent/index' }) },
+  goLearning() { wx.reLaunch({ url: app.roleLandingPage() }) },
   goAppointments() { wx.navigateTo({ url: '/pages/trial-appointments/index' }) }
 })

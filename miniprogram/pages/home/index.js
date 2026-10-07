@@ -8,6 +8,10 @@ Page({
   onLoad() { this.loadData() },
   async onShow() {
     const user = await app.refreshUser().catch(() => null)
+    if (user && typeof app.redirectToRolePage === 'function') {
+      await app.redirectToRolePage(user)
+      return
+    }
     const currentRole = String(user?.currentRole || '').toUpperCase()
     recordEvent('page_view', 'home', currentRole || 'VISITOR')
   },

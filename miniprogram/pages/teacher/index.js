@@ -50,6 +50,7 @@ Page({
     this.setData({ showFeedback: true })
   },
   closeFeedback() { this.setData({ showFeedback: false }) },
+  noop() {},
   onFeedbackInput(e) { this.setData({ [e.currentTarget.dataset.field]: e.detail.value }) },
   async sendFeedback() {
     if (!this.data.feedbackContent.trim()) return wx.showToast({ title: '请填写反馈内容', icon: 'none' })
