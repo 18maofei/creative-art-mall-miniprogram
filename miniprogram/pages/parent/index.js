@@ -9,11 +9,20 @@ Page({
   },
   async loadData() {
     this.setData({ loading: true, loadError: '' })
-    const userId = await app.ensureLogin()
-    if (!userId) {
+    let user = await app.refreshUser().catch(() => null)
+    if (!user) {
+      const userId = await app.ensureLogin()
+      user = userId ? app.globalData.user : null
+    }
+    if (!user) {
       this.setData({ loading: false, loadError: '请登录后查看学习记录' })
       return
     }
+    if (app.serverRole(user.currentRole) !== 'PARENT') {
+      this.setData({ loading: false })
+      return app.redirectToRolePage(user)
+    }
+    const userId = user.id
     if (!app.hasPermission('child.read')) return this.setData({ students: [], child: null, lessons: [], nextSession: null, feedback: [], notices: [], loading: false })
     try {
       const [data, feedback, notices] = await Promise.all([

@@ -8,9 +8,13 @@ Page({
     this.loadData()
   },
   async loadData() {
-    const teacherUserId = await app.ensureUser('TEACHER')
+    const user = await app.refreshUser().catch(() => null)
+    if (!user) return wx.showToast({ title: '请先登录', icon: 'none' })
+    if (app.serverRole(user.currentRole) !== 'TEACHER') {
+      return app.redirectToRolePage(user)
+    }
+    const teacherUserId = user.id
     this.teacherUserId = teacherUserId
-    if (!teacherUserId) return wx.showToast({ title: '登录失败或无教师身份', icon: 'none' })
     try {
       const [sessions, notices] = await Promise.all([
         teacherSessions(teacherUserId),

@@ -9,7 +9,11 @@ Page({
       this.setData({ loading: false })
       return wx.showToast({ title: '请先登录', icon: 'none' })
     }
-    recordEvent('page_view', 'student_dashboard', app.serverRole(user.currentRole) === 'STUDENT' ? 'STUDENT' : 'CUSTOMER')
+    const role = app.serverRole(user.currentRole)
+    if (role === 'PARENT' || role === 'TEACHER') {
+      return app.redirectToRolePage(user)
+    }
+    recordEvent('page_view', 'student_dashboard', role === 'STUDENT' ? 'STUDENT' : 'CUSTOMER')
     try {
       const [courseRows, artworkRows] = await Promise.all([courses().catch(() => []), artworks().catch(() => [])])
       this.setData({ userName: user.name || '同学', courses: courseRows.slice(0, 3), artworks: artworkRows.slice(0, 4), loading: false })
