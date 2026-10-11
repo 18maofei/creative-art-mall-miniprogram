@@ -220,12 +220,11 @@ App({
     const role = normalizeRole(value)
     return role || 'VISITOR'
   },
-  // 客户端只保留家长、教师、学生三套页面；未分配身份时按学生端展示。
+  // 客户端只保留教师端和普通客户端；家长、学生及未分配身份均进入客户端。
   roleLandingPage(user = this.globalData.user) {
     const role = this.serverRole(user?.currentRole)
-    if (role === 'PARENT') return '/pages/parent/index'
     if (role === 'TEACHER') return '/pages/teacher/index'
-    return '/pages/student/index'
+    return '/pages/parent/index'
   },
   redirectToRolePage(user = this.globalData.user) {
     return new Promise(resolve => {

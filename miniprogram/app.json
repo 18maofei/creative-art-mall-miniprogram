@@ -13,7 +13,6 @@
     "pages/leave/index",
     "pages/parent/index",
     "pages/teacher/index",
-    "pages/student/index",
     "pages/lesson-ledger/index",
     "pages/schedule/index",
     "pages/class-schedule/index",

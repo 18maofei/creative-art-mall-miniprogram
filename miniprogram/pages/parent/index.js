@@ -1,8 +1,8 @@
-const { userDashboard, userFeedback, announcements, recordEvent } = require('../../services/api')
+const { userDashboard, userFeedback, announcements, courses, artworks, recordEvent } = require('../../services/api')
 const app = getApp()
 
 Page({
-  data: { students: [], child: null, lessons: [], nextSession: null, feedback: [], notices: [], loading: true, loadError: '' },
+  data: { students: [], child: null, lessons: [], nextSession: null, feedback: [], notices: [], courses: [], artworks: [], isParent: false, loading: true, loadError: '' },
   onShow() {
     recordEvent('page_view', 'parent_dashboard', 'PARENT')
     this.loadData()
@@ -18,17 +18,20 @@ Page({
       this.setData({ loading: false, loadError: '请登录后查看学习记录' })
       return
     }
-    if (app.serverRole(user.currentRole) !== 'PARENT') {
+    const role = app.serverRole(user.currentRole)
+    if (role === 'TEACHER') {
       this.setData({ loading: false })
       return app.redirectToRolePage(user)
     }
     const userId = user.id
-    if (!app.hasPermission('child.read')) return this.setData({ students: [], child: null, lessons: [], nextSession: null, feedback: [], notices: [], loading: false })
+    const isParent = role === 'PARENT' || app.hasPermission('child.read')
     try {
-      const [data, feedback, notices] = await Promise.all([
-        userDashboard(userId),
-        userFeedback(userId).catch(() => []),
-        announcements('PARENT').catch(() => [])
+      const [data, feedback, notices, courseRows, artworkRows] = await Promise.all([
+        isParent ? userDashboard(userId) : Promise.resolve({ students: [], sessions: [] }),
+        isParent ? userFeedback(userId).catch(() => []) : Promise.resolve([]),
+        announcements().catch(() => []),
+        courses().catch(() => []),
+        artworks().catch(() => [])
       ])
       const students = (data.students || []).map(item => ({ ...item, remainingLessons: item.remaining_lessons }))
       const lessons = data.sessions || []
@@ -39,6 +42,9 @@ Page({
         nextSession: lessons[0] || null,
         feedback: feedback.slice(0, 3),
         notices: notices.slice(0, 2),
+        courses: courseRows.slice(0, 3),
+        artworks: artworkRows.slice(0, 4),
+        isParent,
         loading: false
       })
     } catch (error) { this.setData({ loading: false, loadError: error.message || '学习数据加载失败' }) }
