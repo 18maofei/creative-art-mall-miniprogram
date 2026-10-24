@@ -8,7 +8,7 @@ Page({
   onLoad() { this.loadData() },
   async onShow() {
     const user = await app.refreshUser().catch(() => null)
-    if (user && typeof app.redirectToRolePage === 'function') {
+    if (user && typeof app.serverRole === 'function' && app.serverRole(user.currentRole) === 'TEACHER' && typeof app.redirectToRolePage === 'function') {
       await app.redirectToRolePage(user)
       return
     }

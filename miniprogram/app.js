@@ -220,11 +220,11 @@ App({
     const role = normalizeRole(value)
     return role || 'VISITOR'
   },
-  // 客户端只保留教师端和普通客户端；家长、学生及未分配身份均进入客户端。
+  // 客户端只保留教师工作台；普通用户直接使用首页和底部业务页面。
   roleLandingPage(user = this.globalData.user) {
     const role = this.serverRole(user?.currentRole)
     if (role === 'TEACHER') return '/pages/teacher/index'
-    return '/pages/parent/index'
+    return '/pages/home/index'
   },
   redirectToRolePage(user = this.globalData.user) {
     return new Promise(resolve => {

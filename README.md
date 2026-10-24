@@ -106,7 +106,7 @@ npm run dev        # http://127.0.0.1:3000
 
 - 小程序统一走 `wx.login → POST /api/auth/wechat-login → 存 token`，之后所有请求自动携带 `Authorization: Bearer <token>`（8 小时有效）。
 - 后端配置了 `WECHAT_APP_ID` / `WECHAT_APP_SECRET` 时执行真实 `code2Session`；未配置且 `ALLOW_DEV_AUTH=true` 时（本地开发），登录接口接受 `devOpenid`，小程序据此登录种子账号：家长 `demo-parent-001`、教师 `demo-teacher-001`、学生 `demo-student-001`、运营 `demo-operator-001`、管理员 `demo-admin-001`。
-- 登录后不再显示身份选择页，客户端只保留教师端和普通客户端：`TEACHER` 进入教师端，`PARENT`、`STUDENT` 及未设置身份的账号进入普通客户端。普通客户端根据权限展示家庭学习、课程、作品、预约、订单等内容。多角色、权限和身份设置仍由后台管理，切换角色会由后端校验 `user_roles` 后重新签发绑定 `activeRole` 的令牌。权限由 `role_catalog`、`permission_catalog`、`role_permissions` 和 `user_permissions` 计算，浏览器/小程序缓存不能作为授权依据；用户数据接口（订单/地址/请假等）只能访问本人数据，教师接口要求当前会话为 TEACHER/ADMIN 且只能操作自己班级的课次。
+- 登录后不再显示身份选择页，也不再设置独立客户中心：`TEACHER` 进入教师工作台，`PARENT`、`STUDENT` 及未设置身份的账号直接进入首页。首页承载课程、作品、公告和预约，“我的”承载订单、地址、收藏、通知和设置等个人功能。多角色、权限和身份设置仍由后台管理，权限由 `role_catalog`、`permission_catalog`、`role_permissions` 和 `user_permissions` 计算，浏览器/小程序缓存不能作为授权依据。
 
 ## 在微信开发者工具运行
 
@@ -120,7 +120,7 @@ npm run dev        # http://127.0.0.1:3000
 
 ### 手工验证清单（小程序端）
 
-- [ ] 后台设置 `TEACHER` 后进入教师端，其他用户进入普通客户端；无身份默认进入普通客户端
+- [ ] 后台设置 `TEACHER` 后进入教师工作台，其他用户进入首页；无身份默认进入首页
 - [ ] 首页显示公告栏、在售课程与作品（来自后端实时数据）
 - [ ] 本地开发配置下，课程详情「立即报名」→ 确认弹窗 → 演示支付 → 课时到账 → 跳转订单页
 - [ ] 本地开发配置下，商城加购 → 结算取默认地址 → 演示支付 → 订单页出现新订单

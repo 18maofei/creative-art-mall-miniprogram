@@ -131,6 +131,6 @@ Page({
     if (key === 'address') return wx.navigateTo({ url: '/pages/address/index' })
     if (key === 'settings') return this.openSettings()
   },
-  goLearning() { wx.reLaunch({ url: app.roleLandingPage() }) },
+  goLearning() { wx.switchTab({ url: '/pages/home/index' }) },
   goAppointments() { wx.navigateTo({ url: '/pages/trial-appointments/index' }) }
 })

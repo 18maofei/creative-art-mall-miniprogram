@@ -11,14 +11,21 @@
     "pages/orders/index",
     "pages/address/index",
     "pages/leave/index",
-    "pages/parent/index",
     "pages/teacher/index",
     "pages/lesson-ledger/index",
     "pages/schedule/index",
     "pages/class-schedule/index",
     "pages/favorites/index",
     "pages/settings/index",
-    "pages/profile/index"
+    "pages/profile/index",
+    "pages/admin/index",
+    "pages/admin-leaves/index",
+    "pages/admin-orders/index",
+    "pages/admin-schedule/index",
+    "pages/admin-ops/index",
+    "pages/admin-products/index",
+    "pages/admin-enrollments/index",
+    "pages/admin-guardians/index"
   ],
   "window": {
     "navigationBarTitleText": "纯粹艺术文化",
