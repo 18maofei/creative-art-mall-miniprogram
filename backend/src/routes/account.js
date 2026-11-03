@@ -166,6 +166,12 @@ export default async function accountRoutes(app) {
             .limit(12)
             .distinct('class_sessions.id')
             .select('class_sessions.*', 'courses.name AS course_title', 'classes.name AS class_name')
+            .select(db('enrollments AS schedule_enrollments')
+              .select(db.raw('GROUP_CONCAT(DISTINCT schedule_enrollments.child_id)'))
+              .whereColumn('schedule_enrollments.class_id', 'classes.id')
+              .where('schedule_enrollments.status', 'ACTIVE')
+              .whereIn('schedule_enrollments.child_id', childIds)
+              .as('child_ids'))
         : []
       return { data: { user: serializeUser(user, roles, current), students, sessions } }
     } catch (error) { return fail(reply, error) }
@@ -238,6 +244,7 @@ export default async function accountRoutes(app) {
         subjectId: body.subjectId ? id(body.subjectId, 'subjectId') : undefined,
         quantity: body.quantity || 1,
         addressId: body.addressId ? id(body.addressId, 'addressId') : null,
+        courseChildId: body.courseChildId ? id(body.courseChildId, 'courseChildId') : null,
         items: Array.isArray(body.items) && body.items.length ? body.items.map(item => ({
           type: text(item.type || body.type, 'type'),
           subjectId: id(item.subjectId, 'subjectId'),

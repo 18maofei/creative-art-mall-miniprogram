@@ -1,0 +1,28 @@
+@import "../../styles/customer.wxss";
+
+.product-detail-page { min-height: 100vh; padding: 20rpx 28rpx 170rpx; box-sizing: border-box; }
+.detail-state { padding-top: 30rpx; }
+.product-hero { height: 560rpx; overflow: hidden; border-radius: 24rpx; background: #e2eee8; }
+.product-cover { width: 100%; height: 100%; }
+.product-cover-placeholder { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; background: #d6af76; }
+.placeholder-mark { width: 190rpx; height: 190rpx; box-sizing: border-box; border: 24rpx solid rgba(255, 248, 226, .76); border-radius: 26rpx; transform: rotate(18deg); }
+.product-summary { display: flex; flex-direction: column; gap: 14rpx; margin-top: 18rpx; padding: 25rpx 24rpx; }
+.product-category { align-self: flex-start; padding: 6rpx 13rpx; border-radius: 999rpx; background: #edf6f1; color: #648b7b; font-size: 21rpx; }
+.product-name { color: #20473b; font-size: 34rpx; font-weight: 700; line-height: 1.45; }
+.price-stock { display: flex; align-items: baseline; justify-content: space-between; gap: 16rpx; }
+.price-stock .price { font-size: 36rpx; }
+.stock { color: #82918b; font-size: 23rpx; }
+.product-description { display: flex; flex-direction: column; gap: 14rpx; margin-top: 16rpx; padding: 24rpx; }
+.section-title { color: #214b3e; font-size: 29rpx; font-weight: 700; }
+.description-copy { color: #667a71; font-size: 25rpx; line-height: 1.8; white-space: pre-wrap; }
+.product-gallery { margin-top:16rpx; padding:22rpx 18rpx 18rpx; }
+.gallery-heading { display:flex; align-items:center; justify-content:space-between; gap:16rpx; padding:0 6rpx 14rpx; }
+.gallery-counter { color:#819087; font-size:22rpx; }
+.detail-swiper { height:680rpx; overflow:hidden; border-radius:10rpx; background:#f6f8f6; }
+.detail-gallery-image { width:100%; height:100%; background:#f6f8f6; }
+.product-bottom-bar { position: fixed; right: 0; bottom: 0; left: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; gap: 20rpx; padding: 18rpx 28rpx calc(18rpx + env(safe-area-inset-bottom)); border-top: 1rpx solid #edf2ef; background: rgba(255, 255, 255, .98); box-shadow: 0 -8rpx 20rpx rgba(32, 72, 58, .08); }
+.bottom-price { display: flex; min-width: 0; flex-direction: column; gap: 4rpx; }
+.bottom-price .muted { font-size: 20rpx; }
+.bottom-price .price { font-size: 33rpx; }
+.add-button { width: 330rpx; height: 78rpx; margin: 0; padding: 0; font-size: 27rpx; }
+.add-button::after { border: 0; }

@@ -458,9 +458,11 @@ export default async function adminRoutes(app) {
       if (status === 'REFUNDED') throw new Error('退款需要接入支付渠道退款接口，不能手动标记为已退款')
       if (!canTransition(order.status, status)) throw new Error(`订单不能从 ${order.status} 变更为 ${status}`)
       if (status === 'PAID') {
+        if (String(process.env.ALLOW_DEV_AUTH || '').toLowerCase() !== 'true' || String(process.env.PAYMENT_MODE || 'disabled').toLowerCase() !== 'mock') throw new Error('当前支付模式不允许后台手动标记已支付')
         await payOrder(trx, orderId, `ADMIN-${orderId}-${Date.now()}`, operator.id)
         return
       }
+      if (status === 'COMPLETED') throw new Error('订单完成状态只能由买家确认收货')
       const patch = { status, updated_at: trx.fn.now() }
       if (status === 'SHIPPED') {
         const shippable = await trx('order_items').where('order_id', orderId).whereNotNull('product_sku_id').first('id')
@@ -587,15 +589,45 @@ export default async function adminRoutes(app) {
 
   app.post('/api/admin/classes', guard(async (request, reply) => {
     const body = request.body || {}
+    const courseId = id(body.courseId, 'courseId')
+    const teacherUserId = body.teacherUserId ? id(body.teacherUserId, 'teacherUserId') : null
+    if (teacherUserId) {
+      const teacher = await db('users')
+        .join('user_roles', 'user_roles.user_id', 'users.id')
+        .where('users.id', teacherUserId)
+        .where('users.status', 'ACTIVE')
+        .where('user_roles.role', 'TEACHER')
+        .first('users.id')
+      if (!teacher) throw new Error('请选择有效的教师账号')
+    }
     const [insertId] = await db('classes').insert({
-      course_id: id(body.courseId, 'courseId'),
-      teacher_user_id: body.teacherUserId ? id(body.teacherUserId, 'teacherUserId') : null,
+      course_id: courseId,
+      teacher_user_id: teacherUserId,
       name: text(body.name, 'name'),
       campus: body.campus || null,
       room: body.room || null,
       capacity: Number(body.capacity || 20)
     })
     return reply.code(201).send({ data: { id: Number(insertId) } })
+  }))
+
+  app.patch('/api/admin/classes/:classId', guard(async (request, _reply, operator) => {
+    const classId = id(request.params.classId, 'classId')
+    const body = request.body || {}
+    const teacherUserId = body.teacherUserId ? id(body.teacherUserId, 'teacherUserId') : null
+    const klass = await db('classes').where('id', classId).first('id')
+    if (!klass) throw new Error('班级不存在')
+    if (teacherUserId) {
+      const teacher = await db('users')
+        .join('user_roles', 'user_roles.user_id', 'users.id')
+        .where('users.id', teacherUserId)
+        .where('users.status', 'ACTIVE')
+        .where('user_roles.role', 'TEACHER')
+        .first('users.id')
+      if (!teacher) throw new Error('请选择有效的教师账号')
+    }
+    await db('classes').where('id', classId).update({ teacher_user_id: teacherUserId, updated_at: db.fn.now() })
+    return { data: { id: classId, teacherUserId } }
   }))
 
   app.post('/api/admin/classes/:classId/sessions', guard(async (request, reply) => {

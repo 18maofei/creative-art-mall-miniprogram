@@ -30,12 +30,18 @@ export function serializeCourse(row) {
 export function serializeProduct(row, skus = []) {
   if (!row) return null
   const primary = skus[0] || {}
+  let detailImages = []
+  try {
+    const parsed = JSON.parse(row.detail_images_json || '[]')
+    if (Array.isArray(parsed)) detailImages = parsed.filter(value => typeof value === 'string' && value.trim())
+  } catch {}
   return {
     id: Number(row.id),
     title: row.name,
     category: row.category || '画室周边',
     description: row.description,
     cover_url: row.cover_url,
+    detail_images: detailImages,
     status: statusToApi(row.status),
     price: Number(primary.price || 0),
     stock: skus.reduce((total, sku) => total + Number(sku.stock_quantity || 0), 0),

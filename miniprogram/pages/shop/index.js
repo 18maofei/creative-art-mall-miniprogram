@@ -66,6 +66,11 @@ Page({
     this.syncCart(cart)
     wx.showToast({ title: '已加入购物车', icon: 'success' })
   },
+  openDetail(e) {
+    const productId = e.currentTarget.dataset.id
+    if (!productId) return
+    wx.navigateTo({ url: `/pages/product-detail/index?id=${productId}` })
+  },
   changeQuantity(e) {
     if (this.data.checking) return
     const index = Number(e.currentTarget.dataset.index)

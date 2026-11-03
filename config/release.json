@@ -3,8 +3,8 @@
   "corsOrigin": "https://artstudio.murphycai.top",
   "institutionName": "纯粹艺术文化",
   "allowDevAuth": false,
-  "paymentMode": "disabled",
-  "wechatPayEnabled": false,
+  "paymentMode": "wechat",
+  "wechatPayEnabled": true,
   "wechatTrialTemplateId": "nFshfx1UoX1BmX8qmOoiHDUtQkdqAdsviEQKDkYfBbk",
   "demoMode": false,
   "allowInsecureHttp": false

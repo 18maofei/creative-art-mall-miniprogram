@@ -79,13 +79,12 @@ export default async function publicRoutes(app) {
 
   app.get('/api/public/bootstrap', async (_request, reply) => {
     try {
-      const [courses, products, artworks, announcements] = await Promise.all([
-        db('courses').where('status', 'ON_SALE').orderBy('id', 'desc').limit(20),
-        loadProducts(20),
-        loadArtworks(12),
+      const [courses, artworks, announcements] = await Promise.all([
+        db('courses').where('status', 'ON_SALE').orderBy('id', 'desc').limit(2),
+        loadArtworks(2),
         db('announcements').where('status', 'PUBLISHED').orderBy('published_at', 'desc').limit(3)
       ])
-      return { data: { courses: courses.map(serializeCourse), products, artworks, announcements } }
+      return { data: { courses: courses.map(serializeCourse), products: [], artworks, announcements } }
     } catch (error) { return fail(reply, error, 503) }
   })
 

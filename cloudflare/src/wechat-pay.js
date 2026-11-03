@@ -86,6 +86,20 @@ async function verifyText(key, value, signature) {
   return crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, base64Bytes(signature), new TextEncoder().encode(value))
 }
 
+async function verifyWechatResponse(env, response, rawBody) {
+  const timestamp = String(response.headers.get('Wechatpay-Timestamp') || '')
+  const nonce = String(response.headers.get('Wechatpay-Nonce') || '')
+  const signature = String(response.headers.get('Wechatpay-Signature') || '')
+  const serial = String(response.headers.get('Wechatpay-Serial') || '')
+  const expectedSerial = required(env, 'WECHAT_PAY_PLATFORM_CERT_SERIAL')
+  if (!timestamp || !nonce || !signature || !serial || !constantTimeEqual(expectedSerial, serial)) {
+    throw new HttpError(502, '微信支付响应签名信息不完整或序列号不匹配')
+  }
+  const signedMessage = `${timestamp}\n${nonce}\n${rawBody}\n`
+  const verified = await verifyText(await platformVerifier(required(env, 'WECHAT_PAY_PLATFORM_CERT_PEM')), signedMessage, signature)
+  if (!verified) throw new HttpError(502, '微信支付响应签名校验失败')
+}
+
 export function wechatPayEnabled(env) {
   return String(env.PAYMENT_MODE || '').toLowerCase() === 'wechat'
     && String(env.WECHAT_PAY_ENABLED || '').toLowerCase() === 'true'
@@ -99,23 +113,27 @@ export function wechatPayConfigReady(env) {
   return String(env.WECHAT_PAY_API_V3_KEY || '').length === 32
 }
 
-async function signedWechatRequest(env, path, body) {
+async function signedWechatRequest(env, path, body = '', method = 'POST') {
   const mchid = required(env, 'WECHAT_PAY_MCH_ID')
   const serial = required(env, 'WECHAT_PAY_SERIAL_NO')
+  const verifySerial = required(env, 'WECHAT_PAY_PLATFORM_CERT_SERIAL')
   const privateKey = await privateSigner(required(env, 'WECHAT_PAY_PRIVATE_KEY'))
   const timestamp = String(Math.floor(Date.now() / 1000))
   const nonce = randomNonce()
-  const message = `POST\n${path}\n${timestamp}\n${nonce}\n${body}\n`
+  const message = `${method}\n${path}\n${timestamp}\n${nonce}\n${body}\n`
   const signature = await signText(privateKey, message)
-  return fetch(`https://api.mch.weixin.qq.com${path}`, {
-    method: 'POST',
+  const request = {
+    method,
     headers: {
       'content-type': 'application/json',
       Accept: 'application/json',
+      // 请求微信支付公钥签名的响应，避免回到平台证书验签模式。
+      'Wechatpay-Serial': verifySerial,
       Authorization: `WECHATPAY2-SHA256-RSA2048 mchid="${mchid}",nonce_str="${nonce}",timestamp="${timestamp}",serial_no="${serial}",signature="${signature}"`
     },
-    body
-  })
+  }
+  if (method !== 'GET') request.body = body
+  return fetch(`https://api.mch.weixin.qq.com${path}`, request)
 }
 
 export async function createJsapiPayment(env, { order, openid }) {
@@ -137,7 +155,10 @@ export async function createJsapiPayment(env, { order, openid }) {
     payer: { openid: payerOpenid }
   })
   const response = await signedWechatRequest(env, '/v3/pay/transactions/jsapi', requestBody)
-  const payload = await response.json().catch(() => ({}))
+  const rawBody = await response.text()
+  await verifyWechatResponse(env, response, rawBody)
+  let payload
+  try { payload = rawBody ? JSON.parse(rawBody) : {} } catch { payload = {} }
   if (!response.ok || !payload.prepay_id) {
     console.error('wechat jsapi order failed', response.status, payload)
     throw new HttpError(502, '微信支付下单失败，请稍后重试')
@@ -149,6 +170,22 @@ export async function createJsapiPayment(env, { order, openid }) {
   const payMessage = `${appId}\n${timeStamp}\n${nonceStr}\n${packageValue}\n`
   const paySign = await signText(await privateSigner(required(env, 'WECHAT_PAY_PRIVATE_KEY')), payMessage)
   return { appId, timeStamp, nonceStr, package: packageValue, signType: 'RSA', paySign }
+}
+
+// 支付回调可能因网络或微信重试延迟，订单状态查询时用商户订单号做一次幂等核验兜底。
+export async function queryWechatOrder(env, orderNo) {
+  if (!wechatPayConfigReady(env)) throw new HttpError(503, '微信支付尚未完成配置')
+  const mchid = required(env, 'WECHAT_PAY_MCH_ID')
+  const path = `/v3/pay/transactions/out-trade-no/${encodeURIComponent(String(orderNo))}?mchid=${encodeURIComponent(mchid)}`
+  const response = await signedWechatRequest(env, path, '', 'GET')
+  const rawBody = await response.text()
+  await verifyWechatResponse(env, response, rawBody)
+  let payload
+  try { payload = rawBody ? JSON.parse(rawBody) : {} } catch { payload = {} }
+  if (!response.ok) {
+    throw new HttpError(502, payload.message || '微信支付订单查询失败')
+  }
+  return payload
 }
 
 export async function createWechatRefund(env, { orderNo, outRefundNo, amount, reason }) {
@@ -163,7 +200,10 @@ export async function createWechatRefund(env, { orderNo, outRefundNo, amount, re
     amount: { refund: total, total, currency: 'CNY' }
   })
   const response = await signedWechatRequest(env, '/v3/refund/domestic/refunds', requestBody)
-  const payload = await response.json().catch(() => ({}))
+  const rawBody = await response.text()
+  await verifyWechatResponse(env, response, rawBody)
+  let payload
+  try { payload = rawBody ? JSON.parse(rawBody) : {} } catch { payload = {} }
   if (!response.ok || !payload.out_refund_no) {
     console.error('wechat refund request failed', response.status, payload)
     throw new HttpError(response.status === 400 ? 400 : 502, payload.message || '微信退款申请失败')
@@ -177,7 +217,10 @@ export async function verifyWechatNotification(env, request, rawBody) {
   const signature = String(request.headers.get('Wechatpay-Signature') || '')
   const serial = String(request.headers.get('Wechatpay-Serial') || '')
   const timestampNumber = Number(timestamp)
-  if (!timestamp || !nonce || !signature || !serial || !Number.isInteger(timestampNumber) || Math.abs(Date.now() / 1000 - timestampNumber) > 300) {
+  // 微信支付失败回调会在数小时内重试；只允许未来少量时钟偏差，并保留足够的重试窗口。
+  // 订单状态迁移和支付流水本身是幂等的，可以安全处理重复回调。
+  const now = Date.now() / 1000
+  if (!timestamp || !nonce || !signature || !serial || !Number.isInteger(timestampNumber) || timestampNumber - now > 300 || now - timestampNumber > 48 * 60 * 60) {
     throw new HttpError(400, '微信支付回调签名已过期或缺少必要字段')
   }
   const configuredSerial = String(env.WECHAT_PAY_PLATFORM_CERT_SERIAL || '').trim()
@@ -188,18 +231,21 @@ export async function verifyWechatNotification(env, request, rawBody) {
   let envelope
   try { envelope = JSON.parse(rawBody) } catch { throw new HttpError(400, '微信支付回调不是有效 JSON') }
   const resource = envelope?.resource
-  if (!resource?.ciphertext || !resource?.nonce || !resource?.associated_data) throw new HttpError(400, '微信支付回调缺少加密资源')
+  if (!resource || resource.algorithm && resource.algorithm !== 'AEAD_AES_256_GCM' || typeof resource.ciphertext !== 'string' || !resource.ciphertext || typeof resource.nonce !== 'string' || !resource.nonce) {
+    throw new HttpError(400, '微信支付回调缺少加密资源')
+  }
   const apiKey = required(env, 'WECHAT_PAY_API_V3_KEY')
   if (apiKey.length !== 32) throw new HttpError(503, 'WECHAT_PAY_API_V3_KEY 必须为 32 位')
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(apiKey), 'AES-GCM', false, ['decrypt'])
   const ciphertext = base64Bytes(resource.ciphertext)
-  const tag = base64Bytes(resource.tag)
-  const combined = new Uint8Array(ciphertext.length + tag.length)
-  combined.set(ciphertext)
-  combined.set(tag, ciphertext.length)
+  if (ciphertext.length <= 16) throw new HttpError(400, '微信支付回调密文不完整')
+  // 微信支付把 GCM 的 16 字节认证标签直接拼在 ciphertext 末尾，resource 中没有独立的 tag 字段。
+  // nonce 和 associated_data 是普通字符串，不能按 Base64 解码；associated_data 可以是空字符串。
+  const nonceBytes = new TextEncoder().encode(resource.nonce)
+  const associatedData = typeof resource.associated_data === 'string' ? resource.associated_data : ''
   let plaintext
   try {
-    plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: base64Bytes(resource.nonce), additionalData: new TextEncoder().encode(resource.associated_data) }, key, combined)
+    plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonceBytes, additionalData: new TextEncoder().encode(associatedData) }, key, ciphertext)
   } catch {
     throw new HttpError(400, '微信支付回调解密失败')
   }

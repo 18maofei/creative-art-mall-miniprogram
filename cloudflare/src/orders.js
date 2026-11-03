@@ -1,5 +1,6 @@
 import { all, first, run, changedRows, batch, HttpError, isoNow } from './core.js'
 import { applyLedger, balanceOf } from './lessons.js'
+import { queryWechatOrder, wechatPayConfigReady } from './wechat-pay.js'
 
 function orderNo() {
   return `ZX${Date.now()}${Math.floor(Math.random() * 900 + 100)}`
@@ -18,6 +19,10 @@ const TRANSITIONS = {
   COMPLETED: [],
   CANCELLED: [],
   REFUNDED: []
+}
+
+export function paymentChannelOf(rawPayload) {
+  try { return JSON.parse(rawPayload || '{}').channel || null } catch { return null }
 }
 
 export function canTransition(from, to) {
@@ -205,6 +210,19 @@ export async function cancelOrder(db, orderId) {
   return { id: Number(orderId), status: 'CANCELLED' }
 }
 
+export async function assertCourseCreditsAvailableForRefund(db, order) {
+  const items = await all(db, `
+    SELECT order_items.quantity, courses.default_lesson_count
+    FROM order_items JOIN courses ON courses.id = order_items.course_id
+    WHERE order_items.order_id = ? AND order_items.course_id IS NOT NULL
+  `, [order.id])
+  if (!items.length) return
+  if (!order.course_child_id) throw new HttpError(409, '课程订单缺少对应学员，无法发起退款')
+  const required = items.reduce((total, item) => total + Number(item.default_lesson_count || 0) * Number(item.quantity || 0), 0)
+  const balance = await balanceOf(db, order.course_child_id)
+  if (balance < required) throw new HttpError(409, `学员剩余课时不足（需要扣回 ${required} 次，当前 ${balance} 次），请先人工处理`)
+}
+
 async function reverseCourseCredits(db, order, refundId) {
   const items = await all(db, `
     SELECT order_items.id, order_items.quantity, courses.default_lesson_count, courses.name AS course_name
@@ -241,11 +259,35 @@ export async function completeWechatRefund(db, refundRecord, payload) {
 }
 
 // 定时释放无人支付的库存，仍复用取消订单的条件更新，避免和支付/用户取消并发时重复回补。
-export async function expirePendingOrders(db, ageMinutes = 30) {
+export async function expirePendingOrders(db, ageMinutes = 30, env = null) {
   const cutoff = new Date(Date.now() - Math.max(1, Number(ageMinutes) || 30) * 60 * 1000).toISOString()
-  const pending = await all(db, "SELECT id FROM orders WHERE status = 'PENDING_PAYMENT' AND julianday(created_at) < julianday(?) ORDER BY id LIMIT 200", [cutoff])
+  const pending = await all(db, "SELECT id, order_no, total_amount FROM orders WHERE status = 'PENDING_PAYMENT' AND julianday(created_at) < julianday(?) ORDER BY id LIMIT 200", [cutoff])
   let expired = 0
   for (const order of pending) {
+    if (env && wechatPayConfigReady(env)) {
+      try {
+        const payment = await queryWechatOrder(env, order.order_no)
+        const expectedAmount = Math.round(Number(order.total_amount || 0) * 100)
+        const transactionId = String(payment.transaction_id || '').trim()
+        const validPayment = payment.trade_state === 'SUCCESS'
+          && transactionId
+          && String(payment.appid || '') === String(env.WECHAT_APP_ID || '')
+          && String(payment.mchid || '') === String(env.WECHAT_PAY_MCH_ID || '')
+          && Number(payment.amount?.total) === expectedAmount
+        if (validPayment) {
+          await payOrder(db, Number(order.id), transactionId, null, 'WECHAT', {
+            channel: 'WECHAT', transactionId, successTime: payment.success_time || null, source: 'EXPIRY_CHECK'
+          })
+        } else if (payment.trade_state === 'SUCCESS') {
+          console.error('wechat payment expiry check mismatch', { orderId: order.id, orderNo: order.order_no })
+        }
+        if (payment.trade_state === 'SUCCESS') continue
+      } catch (error) {
+        // 查询失败时保留订单，避免回调延迟或微信接口暂时异常造成误取消。
+        console.warn('wechat payment expiry check failed', order.id, error)
+        continue
+      }
+    }
     try {
       const result = await cancelOrder(db, Number(order.id))
       if (result.status === 'CANCELLED') expired += 1

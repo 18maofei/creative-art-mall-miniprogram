@@ -1,5 +1,5 @@
 const app = getApp()
-const { courses, createTrialAppointment, saveTrialSubscription } = require('../../services/api')
+const { courses, createTrialAppointment, saveTrialSubscription, authMe } = require('../../services/api')
 const config = require('../../config')
 
 Page({
@@ -59,8 +59,8 @@ Page({
     const course = this.data.courses[this.data.courseIndex - 1]
     this.setData({ submitting: true })
     try {
-      if (!await app.ensureLogin()) throw new Error('请先登录，预约后可在我的预约查看进度')
-      const subscriptionStatus = await this.requestSubscription()
+      const currentUser = await authMe().then(result => result.user).catch(() => null)
+      const subscriptionStatus = currentUser ? await this.requestSubscription() : null
       const fingerprint = JSON.stringify([guardianName, mobile, childName, age, course?.id, this.data.preferredDate, this.data.preferredTime, this.data.note])
       if (fingerprint !== this.lastFingerprint) { this.lastFingerprint = fingerprint; this.pendingKey = this.buildIdempotencyKey() }
       const result = await createTrialAppointment({
@@ -74,12 +74,19 @@ Page({
       if (subscriptionStatus && result.appointment?.id) {
         await saveTrialSubscription({ appointmentId: result.appointment.id, templateId: config.wechatTrialTemplateId, status: subscriptionStatus }).catch(() => undefined)
       }
+      const appointmentId = result.appointment?.id
       await new Promise(resolve => wx.showModal({
         title: result.duplicate ? '预约已提交' : '预约成功',
-        content: '画室老师会尽快联系您确认试听时间，请保持电话畅通。',
+        content: currentUser
+          ? '画室老师会尽快联系您确认试听时间，请保持电话畅通。您可在我的预约查看处理进度。'
+          : `预约编号：${appointmentId || '已受理'}。该编号仅用于电话沟通核对，不是自助查询凭证。画室老师会尽快联系您确认试听时间，请保持电话畅通。`,
         showCancel: false,
-        confirmText: '查看预约',
-        success: () => { wx.redirectTo({ url: '/pages/trial-appointments/index' }); resolve() }, fail: resolve
+        confirmText: currentUser ? '查看预约' : '知道了',
+        success: () => {
+          if (currentUser) wx.redirectTo({ url: '/pages/trial-appointments/index' })
+          resolve()
+        },
+        fail: resolve
       }))
     } catch (error) {
       wx.showToast({ title: error.message || '提交失败，请稍后重试', icon: 'none' })

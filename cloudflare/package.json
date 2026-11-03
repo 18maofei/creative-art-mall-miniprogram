@@ -15,7 +15,8 @@
     "db:bootstrap-admin:remote": "wrangler d1 execute art-studio --remote --file=scripts/bootstrap-admin.sql",
     "db:seed": "wrangler d1 execute art-studio --local --file=scripts/seed.sql",
     "db:seed:remote": "wrangler d1 execute art-studio --remote --file=scripts/seed.sql",
-    "types": "wrangler types"
+    "types": "wrangler types",
+    "test": "node --test"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"

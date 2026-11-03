@@ -47,7 +47,20 @@ Page({
   },
   onShow() { this.loadProfile() },
   async loadProfile(preloadedUser) {
-    const user = preloadedUser || await app.refreshUser().catch(() => null)
+    const token = wx.getStorageSync('zhixingToken')
+    let user = token
+      ? (preloadedUser || app.globalData.user || wx.getStorageSync('zhixingUser'))
+      : null
+    let refreshPromise = token
+      ? app.refreshUser().then(value => ({ user: value })).catch(error => ({ error }))
+      : Promise.resolve({ user: null })
+
+    if (!user) {
+      const refreshed = await refreshPromise
+      user = refreshed.user
+      refreshPromise = Promise.resolve(refreshed)
+    }
+
     if (!user) {
       if (this.data.loggingIn) return
       this.setData({
@@ -56,18 +69,58 @@ Page({
       })
       return
     }
+
     const name = user.name || '微信用户'
-    const courseCount = await this.learnedCourseCount(user)
-    let notificationCount = 0
-    try { notificationCount = Number((await api.notifications(1)).unreadCount || 0) } catch {}
+    const sameUser = String(this.profileUserId || '') === String(user.id)
+    this.profileUserId = user.id
     this.setData({
       loggedIn: true,
       displayName: name,
       avatarUrl: api.mediaUrl(user.avatarUrl || user.avatar_url || ''),
       avatarInitial: name.slice(0, 1) || '微',
       roleLabel: this.roleLabel(),
-      courseCount,
+      courseCount: sameUser ? this.data.courseCount : 0,
       favoriteCount: favorites.list(user.id).length,
+      notificationCount: sameUser ? this.data.notificationCount : 0
+    })
+
+    this.refreshProfileDetails(user, refreshPromise)
+  },
+  async refreshProfileDetails(user, refreshPromise) {
+    const [refreshResult, courseCount, notificationCount] = await Promise.all([
+      refreshPromise,
+      this.learnedCourseCount(user),
+      api.notifications(1).then(result => Number(result.unreadCount || 0)).catch(() => 0)
+    ])
+
+    if (!wx.getStorageSync('zhixingToken')) {
+      if (!this.data.loggingIn) {
+        this.profileUserId = null
+        this.setData({
+          loggedIn: false, displayName: '艺术好朋友', avatarUrl: '', avatarInitial: '艺', roleLabel: '艺术爱好者',
+          courseCount: 0, favoriteCount: 0, notificationCount: 0
+        })
+      }
+      return
+    }
+
+    const savedUserId = wx.getStorageSync('zhixingUserId')
+    if (savedUserId && String(savedUserId) !== String(user.id)) {
+      const currentUser = app.globalData.user || wx.getStorageSync('zhixingUser')
+      if (currentUser) this.loadProfile(currentUser)
+      return
+    }
+
+    const currentUser = refreshResult.user || user
+    const name = currentUser.name || '微信用户'
+    this.setData({
+      loggedIn: true,
+      displayName: name,
+      avatarUrl: api.mediaUrl(currentUser.avatarUrl || currentUser.avatar_url || ''),
+      avatarInitial: name.slice(0, 1) || '微',
+      roleLabel: this.roleLabel(),
+      courseCount,
+      favoriteCount: favorites.list(currentUser.id).length,
       notificationCount
     })
   },

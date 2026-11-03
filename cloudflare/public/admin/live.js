@@ -3,10 +3,10 @@ const API = '/api'
 const state = { page: 'dashboard', token: localStorage.getItem('zhixing-admin-token') || '', adminName: '', user: null, permissions: [], publicPage: '' }
 const $ = selector => document.querySelector(selector)
 const pageInfo = {
-  dashboard: ['运营仪表盘', '全局运营概览与访问趋势'], users: ['用户管理', '管理家长、学生、教师与访客用户'], access: ['身份与权限', '配置用户可用身份和权限覆盖'], children: ['学员管理', '学员档案、监护关系与课时账户'], courses: ['课程管理', '创建、发布和维护课程内容'], schedule: ['排课管理', '班级、课次发布与学员报名'], leaves: ['请假审批', '处理家长提交的请假申请'], trials: ['试听预约', '跟进家长提交的试听预约'], products: ['商品管理', '管理周边商品、库存与上架状态'], artworks: ['作品管理', '上传并发布学员作品与教学花絮'], resources: ['资源中心', '管理课件、宣传素材和业务文档'], orders: ['订单管理', '查看课程报名和商品订单'], reports: ['数据报表', '分析用户增长、访问和转化趋势'], announcements: ['公告管理', '发布面向用户和员工的运营通知'], settings: ['系统设置', '当前管理员账号与登录密码维护']
+  dashboard: ['运营仪表盘', '全局运营概览与访问趋势'], users: ['用户管理', '管理家长、学生、教师与访客用户'], access: ['身份与权限', '配置用户可用身份和权限覆盖'], children: ['学员管理', '学员档案、监护关系与课时账户'], courses: ['课程管理', '创建、发布和维护课程内容'], schedule: ['排课管理', '班级、课次发布与学员报名'], leaves: ['请假审批', '处理家长提交的请假申请'], trials: ['试听预约', '跟进家长提交的试听预约'], products: ['商品管理', '管理周边商品、库存与上架状态'], artworks: ['作品管理', '上传并发布学员作品'], 'artwork-comments': ['评论审核', '审核小程序用户提交的作品评论'], resources: ['资源中心', '管理课件、宣传素材和业务文档'], orders: ['订单管理', '查看课程报名和商品订单'], reports: ['数据报表', '分析用户增长、访问和转化趋势'], announcements: ['公告管理', '发布面向用户和员工的运营通知'], settings: ['系统设置', '当前管理员账号与登录密码维护']
 }
-const navItems = [['dashboard', '▦', '仪表盘'], ['users', '♙', '用户管理'], ['access', '♢', '身份与权限'], ['children', '☺', '学员管理'], ['courses', '▣', '课程管理'], ['schedule', '▥', '排课管理'], ['leaves', '✈', '请假审批'], ['trials', '◷', '试听预约'], ['products', '♧', '商品管理'], ['artworks', '◈', '作品管理'], ['resources', '▤', '资源中心'], ['orders', '☷', '订单管理'], ['reports', '◌', '数据报表'], ['announcements', '♢', '公告管理'], ['settings', '⚙', '系统设置']]
-const navPermissions = { dashboard: 'dashboard.read', users: 'user.read', access: 'identity.manage', children: 'child.read', courses: 'course.read', schedule: 'schedule.read', leaves: 'leave.read', trials: 'trial.read', products: 'product.read', artworks: 'artwork.read', resources: 'resource.read', orders: 'order.read', reports: 'report.read', announcements: 'announcement.read', settings: 'settings.manage' }
+const navItems = [['dashboard', '▦', '仪表盘'], ['users', '♙', '用户管理'], ['access', '♢', '身份与权限'], ['children', '☺', '学员管理'], ['courses', '▣', '课程管理'], ['schedule', '▥', '排课管理'], ['leaves', '✈', '请假审批'], ['trials', '◷', '试听预约'], ['products', '♧', '商品管理'], ['artworks', '◈', '作品管理'], ['artwork-comments', '☷', '评论审核'], ['resources', '▤', '资源中心'], ['orders', '☷', '订单管理'], ['reports', '◌', '数据报表'], ['announcements', '♢', '公告管理'], ['settings', '⚙', '系统设置']]
+const navPermissions = { dashboard: 'dashboard.read', users: 'user.read', access: 'identity.manage', children: 'child.read', courses: 'course.read', schedule: 'schedule.read', leaves: 'leave.read', trials: 'trial.read', products: 'product.read', artworks: 'artwork.read', 'artwork-comments': 'artwork.write', resources: 'resource.read', orders: 'order.read', reports: 'report.read', announcements: 'announcement.read', settings: 'settings.manage' }
 
 pageInfo.notifications = ['消息通知', '查看预约和服务提醒']
 navItems.splice(1, 0, ['notifications', '•', '消息通知'])
@@ -87,8 +87,8 @@ function openModal(type, item = null) {
   if (type === 'product') fields = formField('商品名称', 'title', item?.title) + formField('商品分类', 'category', item?.category || '画材工具') + formField('价格', 'price', item?.price) + formField('库存', 'stock', item?.stock || 0) + formField('商品描述', 'description', item?.description, 'textarea') + coverField(item) + selectField('状态', 'status', [['PUBLISHED', '已发布'], ['DRAFT', '草稿'], ['OFF_SALE', '已下架']], item?.status || 'DRAFT')
   if (type === 'user') fields = formField('姓名', 'name', item?.name) + formField('手机号', 'mobile', item?.mobile) + selectField('身份（快速设置）', 'role', [['VISITOR', 'VISITOR 访客'], ['PARENT', 'PARENT 家长'], ['TEACHER', 'TEACHER 教师'], ['STUDENT', 'STUDENT 学生'], ['OPERATOR', 'OPERATOR 运营人员'], ['ADMIN', 'ADMIN 超级管理员']], item?.role || 'VISITOR') + selectField('状态', 'status', [['ACTIVE', '正常'], ['DISABLED', '停用']], item?.status || 'ACTIVE') + '<div class="field"><label>管理台登录密码</label><input name="password" type="password" minlength="12" placeholder="至少 12 位" autocomplete="new-password" /><small class="panel-sub">运营人员和超级管理员可登录 Web 管理台；编辑时留空表示不修改。</small></div>'
   if (type === 'resource') fields = formField('资源名称', 'title') + '<div class="field"><label>类型</label><select name="type"><option>课件</option><option>宣传图</option><option>文档</option></select></div><div class="field"><label>文件</label><input name="file" type="file" required /></div>'
-  if (type === 'artwork') fields = selectField('所属学员', 'childId', cachedChildren.map(child => [child.id, child.name]), item?.child_id) + formField('作品标题', 'title', item?.title || '') + selectField('内容类型', 'kind', [['ARTWORK', '课程作品'], ['MOMENT', '教学花絮']], item?.kind || 'ARTWORK') + `<div class="field"><label>作品图片</label><input name="file" type="file" accept="image/png,image/jpeg,image/webp" ${item ? '' : 'required'} /><small class="panel-sub">支持 PNG、JPG、WebP，单个文件不超过 10 MB。</small>${safeUrl(item?.image_url) ? `<img src="${safeUrl(item.image_url)}" style="display:block;width:132px;height:88px;object-fit:cover;margin-top:10px;border-radius:6px;border:1px solid #e2e8e5" />` : ''}</div><label style="display:flex;align-items:center;gap:8px;margin:10px 0"><input name="isPublic" type="checkbox" ${item?.is_public === false ? '' : 'checked'} /> 发布到小程序作品页</label>`
-  $('#modalTitle').textContent = `${title}${{ course: '课程', product: '商品', user: '用户', resource: '资源' }[type]}`
+  if (type === 'artwork') fields = selectField('所属学员', 'childId', cachedChildren.map(child => [child.id, child.name]), item?.child_id) + formField('作品标题', 'title', item?.title || '') + `<div class="field"><label>作品介绍</label><textarea name="description" maxlength="2000">${escapeHtml(item?.description || '')}</textarea></div>` + selectField('内容类型', 'kind', [['ARTWORK', '课程作品'], ['MOMENT', '教学花絮']], item?.kind || 'ARTWORK') + `<div class="field"><label>作品图片</label><input name="file" type="file" accept="image/png,image/jpeg,image/webp" ${item ? '' : 'required'} /><small class="panel-sub">支持 PNG、JPG、WebP，单个文件不超过 10 MB。</small>${safeUrl(item?.image_url) ? `<img src="${safeUrl(item.image_url)}" style="display:block;width:132px;height:88px;object-fit:cover;margin-top:10px;border-radius:6px;border:1px solid #e2e8e5" />` : ''}</div><label style="display:flex;align-items:center;gap:8px;margin:10px 0"><input name="isPublic" type="checkbox" ${item?.is_public === false ? '' : 'checked'} /> 发布到小程序作品页</label>`
+  $('#modalTitle').textContent = `${title}${{ course: '课程', product: '商品', user: '用户', resource: '资源', artwork: '作品' }[type] || ''}`
   $('#modalForm').innerHTML = fields + '<div class="form-actions"><button type="button" class="secondary" onclick="closeModal()">取消</button><button class="primary">保存</button></div>'
   $('#modalForm').onsubmit = event => save(event, type, item)
   $('#modal').classList.add('show')
@@ -99,7 +99,7 @@ async function save(event, type, item) {
   try {
     if (type === 'artwork') {
       const file = form.get('file')
-      const data = { childId: Number(form.get('childId')), title: form.get('title'), kind: form.get('kind'), isPublic: form.get('isPublic') === 'on' }
+      const data = { childId: Number(form.get('childId')), title: form.get('title'), description: form.get('description') || '', kind: form.get('kind'), isPublic: form.get('isPublic') === 'on' }
       if (file instanceof File && file.size) {
         if (file.size > 10 * 1024 * 1024) throw new Error('文件不能超过 10 MB')
         if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) throw new Error('作品图片仅支持 PNG、JPG 或 WebP 格式')
@@ -175,6 +175,24 @@ async function artworksPage() {
   const [list, children] = await Promise.all([api('/admin/artworks'), api('/admin/children')])
   cachedContent.artworks = list; cachedChildren = children
   return `<div class="page-head"><div><h2>作品管理</h2><p>上传到 R2 后绑定学员，发布状态会同步到小程序的课程作品和教学花絮。</p></div><button class="primary" onclick="openModal('artwork')">+ 上传作品</button></div><section class="panel table-panel"><table><thead><tr><th>预览</th><th>标题</th><th>学员</th><th>类型</th><th>公开</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead><tbody>${list.map(item => `<tr><td>${safeUrl(item.image_url) ? `<img src="${safeUrl(item.image_url)}" alt="" style="width:64px;height:44px;object-fit:cover;border-radius:5px" />` : '—'}</td><td>${escapeHtml(item.title || '未命名作品')}</td><td>${escapeHtml(item.child_name || '—')}</td><td>${item.kind === 'MOMENT' ? '教学花絮' : '课程作品'}</td><td>${item.is_public ? '是' : '否'}</td><td>${tag(item.status)}</td><td>${escapeHtml(item.created_at || '—')}</td><td><button class="table-action" data-id="${Number(item.id)}" onclick="editContent('artworks',this)">编辑</button><button class="table-action" style="color:#d65762" onclick="deleteArtwork(${Number(item.id)})">删除</button></td></tr>`).join('') || '<tr><td colspan="8" class="empty">暂无作品，先上传一张作品图片</td></tr>'}</tbody></table></section>`
+}
+async function artworkCommentsPage() {
+  const status = state.artworkCommentStatus || 'PENDING'
+  const list = await api(`/admin/artwork-comments?status=${encodeURIComponent(status)}`)
+  return `<div class="page-head"><div><h2>作品评论审核</h2><p>评论通过审核后才会公开显示。</p></div><select aria-label="评论状态" onchange="setArtworkCommentStatus(this.value)"><option value="PENDING" ${status === 'PENDING' ? 'selected' : ''}>待审核</option><option value="PUBLISHED" ${status === 'PUBLISHED' ? 'selected' : ''}>已通过</option><option value="REJECTED" ${status === 'REJECTED' ? 'selected' : ''}>已拒绝</option><option value="ALL" ${status === 'ALL' ? 'selected' : ''}>全部</option></select></div><section class="panel table-panel"><table><thead><tr><th>作品</th><th>评论</th><th>用户</th><th>状态</th><th>提交时间</th><th>审核时间</th><th>操作</th></tr></thead><tbody>${list.map(item => `<tr><td>${escapeHtml(item.artwork_title || '未命名作品')}</td><td style="white-space:normal;min-width:240px;max-width:440px">${escapeHtml(item.content)}</td><td>${escapeHtml(item.author_name || '用户')}</td><td>${tag(item.status)}</td><td>${fmtTime(item.created_at)}</td><td>${item.moderated_at ? `${fmtTime(item.moderated_at)}${item.moderator_name ? `<small style="display:block;color:#75827c">${escapeHtml(item.moderator_name)}</small>` : ''}` : '—'}</td><td>${item.status === 'PENDING' ? `<button class="table-action" onclick="moderateArtworkComment(${Number(item.id)},'PUBLISHED')">通过</button><button class="table-action" style="color:#d65762" onclick="moderateArtworkComment(${Number(item.id)},'REJECTED')">拒绝</button>` : '—'}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">当前没有评论</td></tr>'}</tbody></table></section>`
+}
+function setArtworkCommentStatus(status) {
+  state.artworkCommentStatus = ['ALL', 'PENDING', 'PUBLISHED', 'REJECTED'].includes(status) ? status : 'PENDING'
+  render()
+}
+async function moderateArtworkComment(commentId, status) {
+  const action = status === 'PUBLISHED' ? '通过' : '拒绝'
+  if (status === 'REJECTED' && !confirm('确定拒绝这条评论吗？拒绝后不会展示给其他用户。')) return
+  try {
+    await api(`/admin/artwork-comments/${commentId}`, { method: 'PATCH', body: JSON.stringify({ status }) })
+    toast(`评论已${action}`)
+    await render()
+  } catch (error) { toast(error.message) }
 }
 async function deleteArtwork(artworkId) {
   if (!confirm('确定删除这条作品记录吗？')) return
@@ -318,6 +336,7 @@ async function render() {
     else if (state.page === 'access') $('#content').innerHTML = await accessPage()
     else if (['courses', 'products', 'resources'].includes(state.page)) { cachedContent[state.page] = await api(`/admin/${state.page}`); $('#content').innerHTML = await contentList(state.page) }
     else if (state.page === 'artworks') $('#content').innerHTML = await artworksPage()
+    else if (state.page === 'artwork-comments') $('#content').innerHTML = await artworkCommentsPage()
     else if (state.page === 'orders') $('#content').innerHTML = await orders()
     else if (state.page === 'children') $('#content').innerHTML = await childrenPage()
     else if (state.page === 'schedule') $('#content').innerHTML = await schedulePage()

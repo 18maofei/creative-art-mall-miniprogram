@@ -1,0 +1,7 @@
+{
+  "usingComponents": {
+    "page-state": "/components/page-state/index"
+  },
+  "navigationBarBackgroundColor": "#f3f6f3",
+  "navigationBarTitleText": "商品详情"
+}

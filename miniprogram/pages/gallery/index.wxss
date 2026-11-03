@@ -19,6 +19,11 @@
 .gallery-meta { display: flex; align-items: center; gap: 8rpx; }
 .meta-label { color: #9aa9a3; font-size: 21rpx; }
 .meta-value { overflow: hidden; color: #71827b; text-overflow: ellipsis; white-space: nowrap; font-size: 23rpx; }
+.gallery-stats { display: flex; align-items: center; gap: 22rpx; margin-top: 10rpx; }
+.gallery-stat { display: inline-flex; align-items: center; gap: 7rpx; margin: 0; padding: 0; border: 0; background: transparent; color: #84958d; font-size: 22rpx; line-height: 1.4; }
+.gallery-stat::after { border: 0; }
+.gallery-stat text:first-child { color: #6e8f81; }
+.gallery-stat.stat-liked text:first-child { color: #d65d64; }
 .gallery-favorite { display: flex; width: 64rpx; height: 64rpx; flex: 0 0 auto; align-items: center; justify-content: center; margin: 0; padding: 0; border: 0; border-radius: 50%; background: #f3f8f5; color: #6f887c; }
 .gallery-favorite::after { border: 0; }
 .favorite-icon { font-size: 38rpx; line-height: 1; }

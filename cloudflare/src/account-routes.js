@@ -1,7 +1,7 @@
 import { all, first, run, batch, changedRows, lastInsertId, bodyOf, id, text, ok, json, assertSelfOrAdmin, requireUser, requirePermission, serializeAddress, serializeOrder, serializeUser, HttpError, isoNow, loadActiveUser } from './core.js'
 import { balanceOf } from './lessons.js'
 import { createOrder, payOrder, cancelOrder } from './orders.js'
-import { createJsapiPayment, verifyWechatNotification, wechatPayConfigReady, wechatPayEnabled } from './wechat-pay.js'
+import { createJsapiPayment, queryWechatOrder, verifyWechatNotification, wechatPayConfigReady, wechatPayEnabled } from './wechat-pay.js'
 
 function placeholders(values) { return values.map(() => '?').join(',') }
 
@@ -262,8 +262,30 @@ export function registerAccountRoutes(router) {
     // 客户可操作自己的订单；下方查询始终校验 buyer_user_id。
     const order = await first(ctx.db, 'SELECT orders.*, users.display_name AS buyer_name FROM orders JOIN users ON users.id = orders.buyer_user_id WHERE orders.id = ? AND orders.buyer_user_id = ?', [orderId, current.id])
     if (!order) throw new HttpError(404, '订单不存在')
+    if (order.status === 'PENDING_PAYMENT' && wechatPayConfigReady(ctx.env)) {
+      try {
+        const payment = await queryWechatOrder(ctx.env, order.order_no)
+        const expectedAmount = Math.round(Number(order.total_amount || 0) * 100)
+        const transactionId = String(payment.transaction_id || '').trim()
+        const validPayment = payment.trade_state === 'SUCCESS'
+          && transactionId
+          && String(payment.appid || '') === String(ctx.env.WECHAT_APP_ID || '')
+          && String(payment.mchid || '') === String(ctx.env.WECHAT_PAY_MCH_ID || '')
+          && Number(payment.amount?.total) === expectedAmount
+        if (validPayment) {
+          await payOrder(ctx.db, Number(order.id), transactionId, null, 'WECHAT', {
+            channel: 'WECHAT', transactionId, successTime: payment.success_time || null, source: 'ORDER_STATUS_SYNC'
+          })
+        } else if (payment.trade_state === 'SUCCESS') {
+          console.error('wechat payment status mismatch', { orderId: order.id, orderNo: order.order_no })
+        }
+      } catch (error) {
+        console.error('wechat payment status sync failed', { orderId: order.id, message: error?.message || String(error) })
+      }
+    }
     const items = await all(ctx.db, 'SELECT * FROM order_items WHERE order_id = ? ORDER BY id', [orderId])
-    return ok(serializeOrder(order, items))
+    const latest = await first(ctx.db, 'SELECT orders.*, users.display_name AS buyer_name FROM orders JOIN users ON users.id = orders.buyer_user_id WHERE orders.id = ? AND orders.buyer_user_id = ?', [orderId, current.id])
+    return ok(serializeOrder(latest || order, items))
   })
 
   router.post('/api/orders', async ctx => {

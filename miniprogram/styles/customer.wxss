@@ -10,7 +10,6 @@ page { background: #f3f6f3; color: #214b3e; }
 .section-title { font-size: 32rpx; color: #214b3e; }
 .section-link { color: #24664f; padding: 12rpx 0 12rpx 12rpx; }
 .page-title, .head-title, .gallery-title { font-size: 40rpx; line-height: 1.4; color: #214b3e; }
-.course-head, .shop-head, .schedule-head, .ledger-head, .records-head, .trial-hero { background: #f3f6f3; padding: 32rpx; }
 .course-search, .shop-search, .search-bar { border-radius: 20rpx; min-height: 84rpx; background: #fff; }
 .search-input { font-size: 26rpx; }
 .form input, .form textarea, .field-column textarea { box-sizing: border-box; border: 1rpx solid #e4ece6; border-radius: 16rpx; background: #f8faf7; }

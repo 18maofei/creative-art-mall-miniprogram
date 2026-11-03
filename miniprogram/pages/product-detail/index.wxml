@@ -1,0 +1,31 @@
+<view class="page product-detail-page">
+  <view wx:if="{{loading}}" class="detail-state"><page-state loading="{{true}}" /></view>
+  <view wx:elif="{{error}}" class="detail-state"><page-state error="{{error}}" bind:retry="loadData" /></view>
+  <block wx:elif="{{product}}">
+    <view class="product-hero">
+      <image wx:if="{{product.cover_url}}" class="product-cover" src="{{product.cover_url}}" mode="aspectFill" />
+      <view wx:else class="product-cover-placeholder"><view class="placeholder-mark"></view></view>
+    </view>
+    <view class="product-summary card">
+      <text class="product-category">{{product.category || '创作材料'}}</text>
+      <text class="product-name">{{product.name}}</text>
+      <view class="price-stock"><text class="price">¥{{product.price}}</text><text class="stock">库存 {{product.stock}}</text></view>
+    </view>
+    <view class="product-description card">
+      <text class="section-title">商品介绍</text>
+      <text class="description-copy">{{product.description || '商品介绍更新中，欢迎咨询了解。'}}</text>
+    </view>
+    <view wx:if="{{hasDetailImages}}" class="product-gallery card">
+      <view class="gallery-heading"><text class="section-title">详情图片</text><text class="gallery-counter">{{detailImageNumber}} / {{product.detail_images.length}}</text></view>
+      <swiper class="detail-swiper" current="{{detailImageIndex}}" circular="{{false}}" indicator-dots="{{hasMultipleDetailImages}}" bindchange="onDetailImageChange">
+        <swiper-item wx:for="{{product.detail_images}}" wx:key="*this">
+          <image class="detail-gallery-image" src="{{item}}" mode="aspectFit" data-index="{{index}}" bindtap="previewDetailImage" />
+        </swiper-item>
+      </swiper>
+    </view>
+    <view class="product-bottom-bar">
+      <view class="bottom-price"><text class="muted">价格</text><text class="price">¥{{product.price}}</text></view>
+      <button class="primary-btn add-button" bindtap="addToCart">加入购物车</button>
+    </view>
+  </block>
+</view>

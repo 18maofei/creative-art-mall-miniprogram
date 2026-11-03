@@ -35,18 +35,19 @@ function request(path, method = 'GET', data, adminUserId) {
 }
 
 // wx.uploadFile 用于头像等本地临时文件；响应仍要求使用统一 { data } 包装。
-function uploadFile(path, filePath, formData = {}) {
+function uploadFile(path, filePath, formData = {}, adminUserId) {
   return new Promise((resolve, reject) => {
     let url
     try { url = `${apiBaseUrl()}${path}` } catch (error) { reject(error); return }
     const header = { Authorization: `Bearer ${wx.getStorageSync('zhixingToken')}` }
+    if (adminUserId) header['X-Admin-User-Id'] = String(adminUserId)
     wx.uploadFile({
       url,
       filePath,
       name: 'file',
       formData,
       header,
-      timeout: 15000,
+      timeout: 60000,
       success: ({ statusCode, data: raw }) => {
         let response = raw
         if (typeof raw === 'string') {
@@ -93,14 +94,39 @@ function normalizeCourse(item) {
     cover_url: mediaUrl(item.cover_url)
   }
 }
-function normalizeProduct(item) { return { ...item, name: item.title, desc: item.description, cover_url: mediaUrl(item.cover_url) } }
-function normalizeArtwork(item) { return { ...item, image_url: mediaUrl(item.image_url) } }
+function normalizeProduct(item) {
+  return {
+    ...item,
+    name: item.title,
+    desc: item.description,
+    cover_url: mediaUrl(item.cover_url),
+    detail_images: (Array.isArray(item.detail_images) ? item.detail_images : []).map(mediaUrl)
+  }
+}
+function normalizeArtwork(item) {
+  return {
+    ...item,
+    image_url: mediaUrl(item.image_url),
+    likes_count: Number(item.likes_count || 0),
+    comments_count: Number(item.comments_count || 0),
+    liked_by_me: item.liked_by_me === true || Number(item.liked_by_me) === 1
+  }
+}
 
 // ---------- 公开 ----------
 function bootstrap() { return request('/api/public/bootstrap').then(data => ({ ...data, courses: (data.courses || []).map(normalizeCourse), products: (data.products || []).map(normalizeProduct), artworks: (data.artworks || []).map(normalizeArtwork) })) }
 function courses() { return request('/api/courses').then(rows => rows.map(normalizeCourse)) }
 function products() { return request('/api/products').then(rows => rows.map(normalizeProduct)) }
 function artworks(kind) { return request(`/api/artworks${kind ? `?kind=${encodeURIComponent(kind)}` : ''}`).then(rows => rows.map(normalizeArtwork)) }
+function artworkDetail(artworkId) {
+  return request(`/api/artworks/${encodeURIComponent(artworkId)}`).then(data => ({
+    artwork: normalizeArtwork(data.artwork),
+    comments: Array.isArray(data.comments) ? data.comments : []
+  }))
+}
+function setArtworkLike(artworkId, liked) { return request(`/api/artworks/${encodeURIComponent(artworkId)}/like`, 'PUT', { liked }) }
+function submitArtworkComment(artworkId, content) { return request(`/api/artworks/${encodeURIComponent(artworkId)}/comments`, 'POST', { content }) }
+function deleteArtworkComment(artworkId, commentId) { return request(`/api/artworks/${encodeURIComponent(artworkId)}/comments/${encodeURIComponent(commentId)}`, 'DELETE') }
 function announcements(audience) { return request(`/api/announcements${audience ? `?audience=${audience}` : ''}`) }
 function createTrialAppointment(payload) { return request('/api/trial-appointments', 'POST', payload) }
 function saveTrialSubscription(payload) { return request('/api/notifications/subscriptions', 'POST', payload) }
@@ -156,10 +182,26 @@ function adminProducts(adminUserId) {
     return flat
   })
 }
+function adminProductCatalog(adminUserId) { return request('/api/admin/products', 'GET', undefined, adminUserId).then(rows => rows.map(normalizeProduct)) }
 function createProduct(adminUserId, payload) { return request('/api/admin/products', 'POST', payload, adminUserId) }
+function updateProductDetailImages(adminUserId, productId, images) {
+  const base = apiBaseUrl()
+  const paths = (images || []).map(value => {
+    const url = String(value || '')
+    return url.startsWith(base) ? url.slice(base.length) : url
+  })
+  return request(`/api/admin/products/${productId}/detail-images`, 'PATCH', { images: paths }, adminUserId)
+}
+function uploadProductDetailImage(adminUserId, productId, filePath) {
+  const fileName = String(filePath || '').split(/[\\/]/).pop() || 'detail-image.jpg'
+  const extension = (fileName.match(/\.([a-z0-9]+)$/i) || [])[1]?.toLowerCase()
+  const contentType = ({ jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' })[extension] || 'image/jpeg'
+  return uploadFile(`/api/admin/products/${productId}/detail-images`, filePath, { fileName, contentType }, adminUserId)
+}
 function adjustStock(adminUserId, skuId, payload) { return request(`/api/admin/skus/${skuId}/stock`, 'POST', payload, adminUserId) }
-function adminOrders(adminUserId) { return request('/api/admin/orders', 'GET', undefined, adminUserId) }
+function adminOrders(adminUserId) { return request('/api/admin/orders', 'GET', undefined, adminUserId).then(rows => rows.map(item => ({ ...item, refundSupported: item.refund_supported === true }))) }
 function updateOrderStatus(adminUserId, orderId, status, trackingNo) { return request(`/api/admin/orders/${orderId}`, 'PATCH', { status, trackingNo }, adminUserId) }
+function refundOrder(adminUserId, orderId, reason) { return request(`/api/admin/orders/${orderId}/refund`, 'POST', { reason }, adminUserId) }
 function adminChildren(adminUserId) { return request('/api/admin/children', 'GET', undefined, adminUserId) }
 function createChild(adminUserId, payload) { return request('/api/admin/children', 'POST', payload, adminUserId) }
 function adjustLessons(adminUserId, childId, payload) { return request(`/api/admin/children/${childId}/lessons`, 'POST', payload, adminUserId) }
@@ -168,8 +210,10 @@ function adminTrialAppointments(adminUserId, status) { return request(`/api/admi
 function updateTrialAppointment(adminUserId, appointmentId, payload) { return request(`/api/admin/trial-appointments/${appointmentId}`, 'PATCH', payload, adminUserId) }
 function createParent(adminUserId, payload) { return request('/api/admin/parents', 'POST', payload, adminUserId) }
 function bindGuardian(adminUserId, childId, parentUserId, relationship) { return request('/api/admin/guardians', 'POST', { childId, parentUserId, relationship }, adminUserId) }
+function adminUsers(adminUserId, role) { return request(`/api/admin/users${role ? `?role=${encodeURIComponent(role)}` : ''}`, 'GET', undefined, adminUserId) }
 function adminClasses(adminUserId) { return request('/api/admin/classes', 'GET', undefined, adminUserId) }
 function createClass(adminUserId, payload) { return request('/api/admin/classes', 'POST', payload, adminUserId) }
+function updateClassTeacher(adminUserId, classId, teacherUserId) { return request(`/api/admin/classes/${classId}`, 'PATCH', { teacherUserId: teacherUserId || null }, adminUserId) }
 function createSession(adminUserId, classId, payload) { return request(`/api/admin/classes/${classId}/sessions`, 'POST', payload, adminUserId) }
 function createEnrollment(adminUserId, childId, classId) { return request('/api/admin/enrollments', 'POST', { childId, classId }, adminUserId) }
 function adminLeaveRequests(adminUserId, status) { return request(`/api/admin/leave-requests${status ? `?status=${status}` : ''}`, 'GET', undefined, adminUserId) }
@@ -182,17 +226,17 @@ module.exports = {
   request, devContext, recordEvent, mediaUrl,
   authMe, switchRole, bindWechatPhone,
   updateProfile, uploadProfileAvatar,
-  bootstrap, courses, products, artworks, announcements, createTrialAppointment, saveTrialSubscription,
+  bootstrap, courses, products, artworks, artworkDetail, setArtworkLike, submitArtworkComment, deleteArtworkComment, announcements, createTrialAppointment, saveTrialSubscription,
   userDashboard, userOrders, userTrialAppointments, lessonLedger, orderStatus, createOrder, mockPay, wechatPay, confirmReceipt, cancelOrder,
   addresses, createAddress, updateAddress, deleteAddress,
   leaveRequests, createLeaveRequest, userFeedback, notifications, markNotificationRead, markAllNotificationsRead,
   teacherSessions, attendance, confirmAttendance, submitSessionFeedback,
   adminOverview, adminAnalytics,
   adminCourses, createCourse,
-  adminProducts, createProduct, adjustStock,
-  adminOrders, updateOrderStatus,
-  adminChildren, createChild, adjustLessons, adminLessonLedger, adminTrialAppointments, updateTrialAppointment, createParent, bindGuardian,
-  adminClasses, createClass, createSession, createEnrollment,
+  adminProducts, adminProductCatalog, createProduct, updateProductDetailImages, uploadProductDetailImage, adjustStock,
+  adminOrders, updateOrderStatus, refundOrder,
+  adminUsers, adminChildren, createChild, adjustLessons, adminLessonLedger, adminTrialAppointments, updateTrialAppointment, createParent, bindGuardian,
+  adminClasses, createClass, updateClassTeacher, createSession, createEnrollment,
   adminLeaveRequests, reviewLeaveRequest,
   adminAnnouncements, createAnnouncement, updateAnnouncement
 }

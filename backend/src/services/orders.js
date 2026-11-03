@@ -19,7 +19,7 @@ export function canTransition(from, to) {
   return (TRANSITIONS[from] || []).includes(to)
 }
 
-export async function createOrder({ buyerUserId, type, subjectId, quantity = 1, addressId = null, items = null }) {
+export async function createOrder({ buyerUserId, type, subjectId, quantity = 1, addressId = null, courseChildId = null, items = null }) {
   // 兼容单件下单，同时允许购物车一次提交多个商品 SKU。
   const requestedItems = Array.isArray(items) && items.length ? items : [{ type, subjectId, quantity }]
   if (requestedItems.length > 50) throw new Error('单笔订单最多包含 50 个商品')
@@ -40,7 +40,7 @@ export async function createOrder({ buyerUserId, type, subjectId, quantity = 1, 
       const sku = await trx('product_skus')
         .join('products', 'products.id', 'product_skus.product_id')
         .where('products.status', 'ON_SALE')
-        .where(builder => builder.where('product_skus.product_id', subjectId).orWhere('product_skus.id', subjectId))
+        .where(builder => builder.where('product_skus.product_id', itemSubjectId).orWhere('product_skus.id', itemSubjectId))
         .orderBy('product_skus.id')
         .forUpdate()
         .first('product_skus.id AS sku_id', 'product_skus.name AS sku_name', 'product_skus.price', 'product_skus.stock_quantity', 'products.name AS product_name')
@@ -51,9 +51,22 @@ export async function createOrder({ buyerUserId, type, subjectId, quantity = 1, 
     }
 
     const totalAmount = orderItems.reduce((total, item) => total + item.subtotal, 0)
+    let beneficiaryChildId = null
+    if (orderItems.some(item => item.course_id)) {
+      if (courseChildId) {
+        const bound = await trx('parent_children').where({ parent_user_id: buyerUserId, child_id: courseChildId }).first('child_id')
+        if (!bound) throw new Error('该学员不在您的监护列表中')
+        beneficiaryChildId = bound.child_id
+      } else {
+        const firstChild = await trx('parent_children').where('parent_user_id', buyerUserId).orderBy('id').first('child_id')
+        if (!firstChild) throw new Error('购买课程前需要先关联学员')
+        beneficiaryChildId = firstChild.child_id
+      }
+    }
     const order = {
       order_no: orderNo(),
       buyer_user_id: buyerUserId,
+      course_child_id: beneficiaryChildId,
       total_amount: totalAmount,
       status: 'PENDING_PAYMENT'
     }
@@ -91,7 +104,9 @@ export async function payOrder(trx, orderId, transactionId, operatorUserId = nul
   const items = await trx('order_items').where('order_id', order.id).whereNotNull('course_id')
   for (const item of items) {
     const course = await trx('courses').where('id', item.course_id).first('default_lesson_count', 'name')
-    const buyer = await trx('parent_children').where('parent_user_id', order.buyer_user_id).orderBy('id').first('child_id')
+    const buyer = order.course_child_id
+      ? { child_id: order.course_child_id }
+      : await trx('parent_children').where('parent_user_id', order.buyer_user_id).orderBy('id').first('child_id')
     if (!course || !buyer) continue
     await applyLedger(trx, {
       childId: buyer.child_id,

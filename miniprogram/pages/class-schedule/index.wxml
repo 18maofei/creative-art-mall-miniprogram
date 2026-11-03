@@ -11,7 +11,7 @@
         <view class="schedule-info"><text class="schedule-title">{{item.course_title}}</text><text class="muted">{{item.starts_at}}</text><text class="muted">{{item.campus || '校区待定'}} {{item.room || ''}}</text></view>
         <text class="tag">已发布</text>
       </view>
-      <page-state loading="{{loading}}" error="{{loadError}}" empty="{{!sessions.length}}" empty-text="暂无课程安排，报名并关联学员后可在这里查看" bind:retry="loadData" />
+      <page-state loading="{{loading}}" error="{{loadError}}" empty="{{!sessions.length}}" empty-text="{{emptyText}}" bind:retry="loadData" />
     </view>
   </view>
   <view class="section" wx:if="{{canBuy}}"><button class="primary-btn" bindtap="goCourse">去选购课程</button></view>

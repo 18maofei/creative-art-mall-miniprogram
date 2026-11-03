@@ -1,0 +1,50 @@
+<view class="page artwork-detail-page">
+  <view wx:if="{{loading}}" class="detail-state"><page-state loading="{{true}}" /></view>
+  <view wx:elif="{{error}}" class="detail-state"><page-state error="{{error}}" bind:retry="loadData" /></view>
+  <block wx:elif="{{artwork}}">
+    <view class="artwork-hero">
+      <image wx:if="{{artwork.image_url}}" class="hero-image" src="{{artwork.image_url}}" mode="widthFix" bindtap="previewArtwork" />
+      <view wx:else class="hero-placeholder"><text>作品图片暂不可用</text></view>
+    </view>
+
+    <view class="artwork-heading card">
+      <text class="work-label">课程作品</text>
+      <text class="work-title">{{artwork.title || '未命名作品'}}</text>
+      <view class="work-meta"><text>作者</text><text>{{artwork.student_name || '艺术小作者'}}</text></view>
+      <text wx:if="{{artwork.display_date}}" class="work-date">{{artwork.display_date}}</text>
+      <text class="work-description">{{artwork.description || '这件作品还没有添加介绍。'}}</text>
+      <view class="work-actions">
+        <button class="like-button {{artwork.liked_by_me ? 'is-liked' : ''}}" bindtap="toggleLike" loading="{{likePending}}" disabled="{{likePending}}">
+          <text class="like-mark">{{artwork.liked_by_me ? '♥' : '♡'}}</text>
+          <text>{{artwork.liked_by_me ? '已点赞' : '点赞'}}</text>
+          <text class="action-count">{{artwork.likes_count || 0}}</text>
+        </button>
+        <view class="comment-count"><text>评论</text><text>{{artwork.comments_count || 0}}</text></view>
+      </view>
+    </view>
+
+    <view class="comments-section">
+      <view class="section-heading"><text>作品评论</text><text>{{artwork.comments_count || 0}}</text></view>
+      <view class="comment-composer card">
+        <textarea class="comment-input" value="{{draft}}" maxlength="500" placeholder="分享你对这件作品的感受" placeholder-class="comment-placeholder" bindinput="onDraftInput" auto-height="true" />
+        <view class="composer-footer"><text>{{draftLength}} / 500</text><button class="submit-button" bindtap="submitComment" loading="{{submitting}}" disabled="{{submitting}}">发表评论</button></view>
+      </view>
+
+      <view wx:if="{{comments.length}}" class="comment-list">
+        <view wx:for="{{comments}}" wx:key="id" class="comment-item card">
+          <view class="comment-top">
+            <text class="comment-author">{{item.author_name || '用户'}}</text>
+            <view class="comment-tools">
+              <text class="comment-time">{{item.display_time}}</text>
+              <button wx:if="{{item.is_mine}}" class="comment-delete" data-id="{{item.id}}" catchtap="deleteComment" disabled="{{deletingCommentId}}">删除</button>
+            </view>
+          </view>
+          <text class="comment-content">{{item.content}}</text>
+          <text wx:if="{{item.status === 'PENDING'}}" class="comment-status pending-status">审核中，仅你可见</text>
+          <text wx:elif="{{item.status === 'REJECTED'}}" class="comment-status rejected-status">未通过审核，仅你可见</text>
+        </view>
+      </view>
+      <view wx:else class="comments-empty"><text class="empty-mark">✦</text><text>还没有评论，来分享第一条感受吧</text></view>
+    </view>
+  </block>
+</view>

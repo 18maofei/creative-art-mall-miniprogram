@@ -6,8 +6,8 @@
   "workers_dev": true,
   "vars": {
     "ALLOW_DEV_AUTH": "false",
-    "PAYMENT_MODE": "disabled",
-    "WECHAT_PAY_ENABLED": "false",
+    "PAYMENT_MODE": "wechat",
+    "WECHAT_PAY_ENABLED": "true",
     "CORS_ORIGIN": "https://artstudio.murphycai.top",
     "INSTITUTION_NAME": "纯粹艺术文化",
     "EMAIL_FROM": "noreply@murphycai.top",

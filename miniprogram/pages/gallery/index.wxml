@@ -58,6 +58,14 @@
               <text class="meta-label">作者</text>
               <text class="meta-value">{{item.student_name || '艺术小作者'}}</text>
             </view>
+            <view class="gallery-stats">
+              <button class="gallery-stat {{item.liked_by_me ? 'stat-liked' : ''}}" data-id="{{item.id}}" catchtap="toggleLike" hover-class="favorite-hover">
+                <text>{{item.liked_by_me ? '♥' : '♡'}}</text><text>{{item.likes_count || 0}}</text>
+              </button>
+              <view class="gallery-stat" data-id="{{item.id}}" catchtap="openArtwork">
+                <text>评论</text><text>{{item.comments_count || 0}}</text>
+              </view>
+            </view>
           </view>
           <button
             class="gallery-favorite {{item.isFavorite ? 'is-favorite' : ''}}"

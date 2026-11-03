@@ -38,6 +38,6 @@ export default {
   },
 
   async scheduled(_event, env, ctx) {
-    ctx.waitUntil(expirePendingOrders(env.DB, 30).catch(error => console.error('pending order expiry failed', error)))
+    ctx.waitUntil(expirePendingOrders(env.DB, 30, env).catch(error => console.error('pending order expiry failed', error)))
   }
 }

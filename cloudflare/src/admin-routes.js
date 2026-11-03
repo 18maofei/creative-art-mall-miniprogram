@@ -1,7 +1,7 @@
 import { all, first, run, batch, changedRows, lastInsertId, bodyOf, id, text, ok, json, HttpError, isoNow, requireAdmin, requirePermission, passwordHash, passwordMatches, sessionFor, serializeCourse, serializeProduct, serializeUser, serializeOrder, statusToDb, loadActiveUser, normalizeRole, roleCode, roleName, ROLE_DEFINITIONS, DEFAULT_ROLE_PERMISSIONS, bytesToHex, encodeBase64Url } from './core.js'
 import { balanceOf, applyLedger } from './lessons.js'
-import { canTransition, payOrder, cancelOrder, completeWechatRefund } from './orders.js'
-import { createUploadUrl } from './storage.js'
+import { canTransition, paymentChannelOf, payOrder, cancelOrder, completeWechatRefund, assertCourseCreditsAvailableForRefund } from './orders.js'
+import { createUploadUrl, putAsset } from './storage.js'
 import { createWechatRefund, verifyWechatNotification, wechatPayConfigReady } from './wechat-pay.js'
 import { notifyUsers, sendTrialWechatNotification } from './notifications.js'
 
@@ -11,6 +11,9 @@ const COURSE_FIELDS = [
   [['campus'], 'campus'], [['room'], 'room'], [['teacherName', 'teacher_name'], 'teacher_name'],
   [['description'], 'description'], [['coverUrl', 'cover_url'], 'cover_url']
 ]
+const MAX_PRODUCT_DETAIL_IMAGES = 10
+const MAX_PRODUCT_DETAIL_IMAGE_BYTES = 10 * 1024 * 1024
+const PRODUCT_DETAIL_IMAGE_PREFIX = '/api/assets/product-covers/'
 
 function placeholders(values) { return values.map(() => '?').join(',') }
 
@@ -58,6 +61,22 @@ function boundedText(value, name, maxLength = 200) {
   const result = text(value, name)
   if (result.length > maxLength) throw new HttpError(400, `${name} 不能超过 ${maxLength} 个字符`)
   return result
+}
+
+function productDetailImages(raw) {
+  try {
+    const parsed = JSON.parse(raw || '[]')
+    return Array.isArray(parsed) ? parsed.filter(value => typeof value === 'string' && value.trim()) : []
+  } catch { return [] }
+}
+
+function validateProductDetailImages(value) {
+  if (!Array.isArray(value) || value.length > MAX_PRODUCT_DETAIL_IMAGES) throw new HttpError(400, `商品详情图最多 ${MAX_PRODUCT_DETAIL_IMAGES} 张`)
+  const images = value.map(image => String(image || '').trim())
+  if (images.some(image => image.length > 2048 || !image.startsWith(PRODUCT_DETAIL_IMAGE_PREFIX) || image.includes('..') || /[?#]/.test(image))) {
+    throw new HttpError(400, '商品详情图地址无效')
+  }
+  return images
 }
 
 function normalizedEmail(value) {
@@ -139,7 +158,7 @@ function permissionForAdminRequest(ctx) {
   if (path.includes('/leave-requests') && ctx.request.method !== 'GET') return 'leave.review'
   const resources = [
     ['/users', 'user'], ['/parents', 'user'], ['/guardians', 'child'], ['/children', 'child'],
-    ['/courses', 'course'], ['/classes', 'schedule'], ['/enrollments', 'child'], ['/artworks', 'artwork'], ['/products', 'product'],
+    ['/courses', 'course'], ['/classes', 'schedule'], ['/enrollments', 'child'], ['/artworks', 'artwork'], ['/artwork-comments', 'artwork'], ['/products', 'product'],
     ['/skus', 'product'], ['/resources', 'resource'], ['/uploads', 'resource'], ['/orders', 'order'],
     ['/leave-requests', 'leave'], ['/announcements', 'announcement'], ['/trial-appointments', 'trial']
   ]
@@ -527,6 +546,50 @@ export function registerAdminRoutes(router) {
     return ok({ id: productId })
   }))
 
+  router.post('/api/admin/products/:id/detail-images', guard(async ctx => {
+    const productId = id(ctx.params.id)
+    const product = await first(ctx.db, 'SELECT id, detail_images_json FROM products WHERE id = ?', [productId])
+    if (!product) throw new HttpError(404, '商品不存在')
+    if (productDetailImages(product.detail_images_json).length >= MAX_PRODUCT_DETAIL_IMAGES) throw new HttpError(409, `每个商品最多上传 ${MAX_PRODUCT_DETAIL_IMAGES} 张详情图`)
+
+    let form
+    try { form = await ctx.request.formData() } catch { throw new HttpError(400, '图片上传内容无效') }
+    const file = form.get('file')
+    if (!file || typeof file.arrayBuffer !== 'function' || !Number.isFinite(Number(file.size)) || Number(file.size) < 1) throw new HttpError(400, '请选择要上传的图片')
+    if (Number(file.size) > MAX_PRODUCT_DETAIL_IMAGE_BYTES) throw new HttpError(413, '单张详情图不能超过 10 MB')
+
+    const contentType = String(form.get('contentType') || file.type || '').split(';')[0].trim().toLowerCase()
+    const name = String(form.get('fileName') || file.name || 'detail-image')
+    const upload = await createUploadUrl(ctx.env, { name, contentType, folder: 'product-covers' })
+    let stored = false
+    try {
+      await putAsset(ctx.env, upload.key, new Request('https://asset-upload.internal/', {
+        method: 'PUT', headers: { 'content-type': contentType }, body: file
+      }))
+      stored = true
+      const result = await run(ctx.db, `
+        UPDATE products
+        SET detail_images_json = json_insert(COALESCE(detail_images_json, '[]'), '$[#]', ?), updated_at = ?
+        WHERE id = ? AND COALESCE(json_array_length(detail_images_json), 0) < ?
+      `, [upload.publicUrl, isoNow(), productId, MAX_PRODUCT_DETAIL_IMAGES])
+      if (!changedRows(result)) throw new HttpError(409, `每个商品最多上传 ${MAX_PRODUCT_DETAIL_IMAGES} 张详情图`)
+      const updated = await first(ctx.db, 'SELECT detail_images_json FROM products WHERE id = ?', [productId])
+      return ok({ detail_images: productDetailImages(updated?.detail_images_json) }, 201)
+    } catch (error) {
+      if (stored) await ctx.env.ASSETS.delete(upload.key).catch(() => undefined)
+      throw error
+    }
+  }))
+
+  router.patch('/api/admin/products/:id/detail-images', guard(async ctx => {
+    const productId = id(ctx.params.id)
+    const body = await bodyOf(ctx)
+    const images = validateProductDetailImages(body.images)
+    const result = await run(ctx.db, 'UPDATE products SET detail_images_json = ?, updated_at = ? WHERE id = ?', [JSON.stringify(images), isoNow(), productId])
+    if (!changedRows(result)) throw new HttpError(404, '商品不存在')
+    return ok({ detail_images: images })
+  }))
+
   router.post('/api/admin/skus/:skuId/stock', guard(async ctx => {
     const skuId = id(ctx.params.skuId, 'skuId')
     const body = await bodyOf(ctx)
@@ -560,7 +623,18 @@ export function registerAdminRoutes(router) {
     const orders = await all(ctx.db, 'SELECT orders.*, users.display_name AS buyer_name FROM orders JOIN users ON users.id = orders.buyer_user_id ORDER BY orders.id DESC')
     const items = orders.length ? await all(ctx.db, `SELECT * FROM order_items WHERE order_id IN (${placeholders(orders.map(order => order.id))}) ORDER BY id`, orders.map(order => order.id)) : []
     const refunds = orders.length ? await all(ctx.db, `SELECT * FROM refund_records WHERE order_id IN (${placeholders(orders.map(order => order.id))}) ORDER BY id DESC`, orders.map(order => order.id)) : []
-    return ok(orders.map(order => ({ ...serializeOrder(order, items.filter(item => Number(item.order_id) === Number(order.id))), refund_status: refunds.find(refund => Number(refund.order_id) === Number(order.id))?.status || null })))
+    const payments = orders.length ? await all(ctx.db, `SELECT * FROM payment_records WHERE order_id IN (${placeholders(orders.map(order => order.id))}) AND status IN ('SUCCESS', 'REFUNDED') ORDER BY id DESC`, orders.map(order => order.id)) : []
+    return ok(orders.map(order => {
+      const payment = payments.find(row => Number(row.order_id) === Number(order.id))
+      const channel = paymentChannelOf(payment?.raw_payload)
+      const refund = refunds.find(row => Number(row.order_id) === Number(order.id))
+      return {
+        ...serializeOrder(order, items.filter(item => Number(item.order_id) === Number(order.id))),
+        refund_status: refund?.status || null,
+        payment_channel: channel,
+        refund_supported: Boolean(payment?.transaction_id && channel === 'WECHAT')
+      }
+    }))
   }))
 
   router.patch('/api/admin/orders/:id', guard(async ctx => {
@@ -576,10 +650,11 @@ export function registerAdminRoutes(router) {
     }
     if (!canTransition(order.status, status)) throw new HttpError(400, `订单不能从 ${order.status} 变更为 ${status}`)
     if (status === 'PAID') {
-      // 正式微信支付必须等待验签后的平台回调，后台不能绕过支付直接发放课时或确认收款。
-      if (String(ctx.env.PAYMENT_MODE || '').toLowerCase() === 'wechat') throw new HttpError(409, '微信支付模式下只能由支付回调确认订单，不能后台手动标记已支付')
+      // 仅开发模拟支付允许后台确认；线上支付必须经过微信平台回调。
+      if (String(ctx.env.PAYMENT_MODE || '').toLowerCase() !== 'mock') throw new HttpError(409, '当前支付模式不允许后台手动标记已支付')
       return ok(await payOrder(ctx.db, orderId, `ADMIN-${orderId}-${Date.now()}`, (await requireAdmin(ctx)).id, 'ADMIN'))
     }
+    if (status === 'COMPLETED') throw new HttpError(409, '订单完成状态只能由买家确认收货')
     if (status === 'CANCELLED') return ok(await cancelOrder(ctx.db, orderId))
     const now = isoNow()
     const fields = ['status = ?', 'updated_at = ?']
@@ -601,9 +676,11 @@ export function registerAdminRoutes(router) {
     const existing = await first(ctx.db, 'SELECT * FROM refund_records WHERE order_id = ?', [orderId])
     if (existing?.status === 'SUCCESS') return ok({ id: orderId, status: 'REFUNDED', refundStatus: 'SUCCESS' })
     if (existing?.status === 'PROCESSING') return ok({ id: orderId, status: order.status, refundStatus: 'PROCESSING', outRefundNo: existing.out_refund_no })
-    const payment = await first(ctx.db, "SELECT transaction_id FROM payment_records WHERE order_id = ? AND status = 'SUCCESS' ORDER BY id DESC LIMIT 1", [orderId])
-    if (!payment?.transaction_id) throw new HttpError(409, '订单缺少微信支付流水，无法发起退款')
+    const payment = await first(ctx.db, "SELECT transaction_id, raw_payload FROM payment_records WHERE order_id = ? AND status = 'SUCCESS' ORDER BY id DESC LIMIT 1", [orderId])
+    const paymentChannel = paymentChannelOf(payment?.raw_payload)
+    if (!payment?.transaction_id || paymentChannel !== 'WECHAT') throw new HttpError(409, '该订单没有有效的微信支付流水，不能通过微信退款')
     if (!wechatPayConfigReady(ctx.env)) throw new HttpError(503, '微信支付尚未完成配置')
+    await assertCourseCreditsAvailableForRefund(ctx.db, order)
     const reason = String(body.reason || '后台审核退款').trim().slice(0, 80) || '后台审核退款'
     const outRefundNo = `RF${order.order_no}${Date.now()}`.slice(0, 64)
     const now = isoNow()
@@ -749,6 +826,19 @@ export function registerAdminRoutes(router) {
     return ok({ id: lastInsertId(result) }, 201)
   }))
 
+  router.patch('/api/admin/classes/:classId', guard(async ctx => {
+    const classId = id(ctx.params.classId)
+    const body = await bodyOf(ctx)
+    if (!await first(ctx.db, 'SELECT id FROM classes WHERE id = ?', [classId])) throw new HttpError(404, '班级不存在')
+    const teacherUserId = body.teacherUserId ? id(body.teacherUserId, 'teacherUserId') : null
+    if (teacherUserId) {
+      const teacher = await first(ctx.db, "SELECT users.id FROM users JOIN user_roles ON user_roles.user_id = users.id WHERE users.id = ? AND users.status = 'ACTIVE' AND user_roles.role = 'TEACHER'", [teacherUserId])
+      if (!teacher) throw new HttpError(400, '请选择有效的教师账号')
+    }
+    await run(ctx.db, 'UPDATE classes SET teacher_user_id = ?, updated_at = ? WHERE id = ?', [teacherUserId, isoNow(), classId])
+    return ok({ id: classId, teacherUserId })
+  }))
+
   router.post('/api/admin/classes/:classId/sessions', guard(async ctx => {
     const classId = id(ctx.params.classId, 'classId')
     const body = await bodyOf(ctx)
@@ -877,8 +967,10 @@ export function registerAdminRoutes(router) {
     const sessionId = body.sessionId ? id(body.sessionId, 'sessionId') : null
     if (sessionId && !await first(ctx.db, 'SELECT id FROM class_sessions WHERE id = ?', [sessionId])) throw new HttpError(404, '课次不存在')
     const title = body.title ? boundedText(body.title, 'title', 120) : (kind === 'MOMENT' ? '教学花絮' : '学员作品')
+    const description = String(body.description || '').trim()
+    if ([...description].length > 2000) throw new HttpError(400, '作品介绍不能超过 2000 个字')
     const isPublic = body.isPublic === false || body.isPublic === 0 || String(body.isPublic).toLowerCase() === 'false' ? 0 : 1
-    const result = await run(ctx.db, 'INSERT INTO artworks (child_id, session_id, image_url, title, kind, status, is_public) VALUES (?, ?, ?, ?, ?, \'REVIEWED\', ?)', [childId, sessionId, imageUrl, title, kind, isPublic])
+    const result = await run(ctx.db, 'INSERT INTO artworks (child_id, session_id, image_url, title, description, kind, status, is_public) VALUES (?, ?, ?, ?, ?, ?, \'REVIEWED\', ?)', [childId, sessionId, imageUrl, title, description, kind, isPublic])
     return ok({ id: lastInsertId(result) }, 201)
   }))
 
@@ -905,6 +997,11 @@ export function registerAdminRoutes(router) {
       fields.push('image_url = ?'); params.push(imageUrl)
     }
     if (Object.hasOwn(body, 'title')) fields.push('title = ?'), params.push(body.title ? boundedText(body.title, 'title', 120) : null)
+    if (Object.hasOwn(body, 'description')) {
+      const description = String(body.description || '').trim()
+      if ([...description].length > 2000) throw new HttpError(400, '作品介绍不能超过 2000 个字')
+      fields.push('description = ?'); params.push(description)
+    }
     if (Object.hasOwn(body, 'kind')) {
       const kind = String(body.kind || '').toUpperCase()
       if (!['ARTWORK', 'MOMENT'].includes(kind)) throw new HttpError(400, '作品类型不正确')
@@ -927,5 +1024,45 @@ export function registerAdminRoutes(router) {
     const result = await run(ctx.db, 'DELETE FROM artworks WHERE id = ?', [artworkId])
     if (!changedRows(result)) throw new HttpError(404, '作品不存在')
     return ok({ id: artworkId })
+  }))
+
+  router.get('/api/admin/artwork-comments', guard(async ctx => {
+    const requestedStatus = String(ctx.url.searchParams.get('status') || 'PENDING').toUpperCase()
+    if (!['ALL', 'PENDING', 'PUBLISHED', 'REJECTED'].includes(requestedStatus)) throw new HttpError(400, '评论状态不正确')
+    const where = requestedStatus === 'ALL' ? '' : 'WHERE artwork_comments.status = ?'
+    const params = requestedStatus === 'ALL' ? [] : [requestedStatus]
+    const rows = await all(ctx.db, `
+      SELECT artwork_comments.*, artworks.title AS artwork_title,
+             users.display_name AS author_name, moderators.display_name AS moderator_name
+      FROM artwork_comments
+      JOIN artworks ON artworks.id = artwork_comments.artwork_id
+      JOIN users ON users.id = artwork_comments.user_id
+      LEFT JOIN users AS moderators ON moderators.id = artwork_comments.moderated_by_user_id
+      ${where}
+      ORDER BY CASE artwork_comments.status WHEN 'PENDING' THEN 0 ELSE 1 END, artwork_comments.id DESC
+      LIMIT 200
+    `, params)
+    return ok(rows.map(row => ({ ...row, id: Number(row.id), artwork_id: Number(row.artwork_id), user_id: Number(row.user_id) })))
+  }))
+
+  router.patch('/api/admin/artwork-comments/:id', guard(async (ctx, operator) => {
+    const commentId = id(ctx.params.id, 'commentId')
+    const body = await bodyOf(ctx)
+    const status = String(body.status || '').toUpperCase()
+    if (!['PUBLISHED', 'REJECTED'].includes(status)) throw new HttpError(400, '审核结果不正确')
+    const current = await first(ctx.db, 'SELECT id, status FROM artwork_comments WHERE id = ?', [commentId])
+    if (!current) throw new HttpError(404, '评论不存在')
+    if (current.status !== 'PENDING') {
+      if (current.status === status) return ok({ id: commentId, status })
+      throw new HttpError(409, '这条评论已审核，刷新后再操作')
+    }
+    const now = isoNow()
+    const result = await run(ctx.db, `
+      UPDATE artwork_comments
+      SET status = ?, moderated_by_user_id = ?, moderated_at = ?, updated_at = ?
+      WHERE id = ? AND status = 'PENDING'
+    `, [status, operator.id, now, now, commentId])
+    if (!changedRows(result)) throw new HttpError(409, '这条评论已审核，刷新后再操作')
+    return ok({ id: commentId, status })
   }))
 }

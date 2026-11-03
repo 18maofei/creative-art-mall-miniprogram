@@ -1,1 +1,46 @@
-<view class="page"><view class="section"><view class="card form"><text class="section-title">新增商品草稿</text><input placeholder="商品名称" value="{{name}}" data-field="name" bindinput="onInput"/><button class="primary-btn" bindtap="addProduct">创建商品</button></view></view><view class="section"><text class="section-title">选择 SKU 调整库存</text><view class="choice {{selectedSkuId == item.sku_id ? 'active' : ''}}" wx:for="{{products}}" wx:key="sku_id" data-id="{{item.sku_id}}" bindtap="selectSku">{{item.product_name}} · {{item.sku_name}} · 库存 {{item.stock_quantity}}</view><view class="card form"><input placeholder="数量，正数入库/负数出库" type="number" value="{{quantity}}" data-field="quantity" bindinput="onInput"/><input placeholder="调整原因" value="{{reason}}" data-field="reason" bindinput="onInput"/><button class="primary-btn" bindtap="changeStock">确认库存调整</button></view></view></view>
+<view class="page">
+  <view class="section">
+    <view class="card form">
+      <text class="section-title">新增商品草稿</text>
+      <input placeholder="商品名称" value="{{name}}" data-field="name" bindinput="onInput" />
+      <button class="primary-btn" bindtap="addProduct">创建商品</button>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="detail-manager card">
+      <text class="section-title">商品详情图</text>
+      <picker wx:if="{{catalogProducts.length}}" range="{{catalogProducts}}" range-key="title" value="{{selectedProductIndex}}" bindchange="chooseProduct">
+        <view class="product-picker"><text>{{selectedProduct ? selectedProduct.title : '请选择商品'}}</text><text class="picker-arrow">›</text></view>
+      </picker>
+      <view wx:if="{{selectedProduct}}">
+        <view class="detail-image-heading">
+          <text class="muted">{{selectedProduct.detail_images.length}} / 10 张</text>
+          <button class="outline-btn upload-button" bindtap="uploadDetailImages" loading="{{uploadingDetailImages}}" disabled="{{uploadingDetailImages || savingDetailImages || selectedProduct.detail_images.length >= 10}}">选择并上传</button>
+        </view>
+        <view wx:if="{{selectedProduct.detail_images.length}}" class="detail-image-list">
+          <view class="detail-image-item" wx:for="{{selectedProduct.detail_images}}" wx:key="*this">
+            <image class="detail-image-thumb" src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="previewDetailImage" />
+            <view class="detail-image-actions">
+              <button class="image-action" wx:if="{{index > 0}}" data-index="{{index}}" data-delta="-1" bindtap="moveDetailImage">上移</button>
+              <button class="image-action" wx:if="{{index < selectedProduct.detail_images.length - 1}}" data-index="{{index}}" data-delta="1" bindtap="moveDetailImage">下移</button>
+              <button class="image-action remove-image" data-index="{{index}}" bindtap="removeDetailImage">删除</button>
+            </view>
+          </view>
+        </view>
+        <view wx:else class="detail-image-empty">还没有详情图</view>
+      </view>
+      <view wx:else class="detail-image-empty">请先创建或选择商品</view>
+    </view>
+  </view>
+
+  <view class="section">
+    <text class="section-title">选择 SKU 调整库存</text>
+    <view class="choice {{selectedSkuId == item.sku_id ? 'active' : ''}}" wx:for="{{products}}" wx:key="sku_id" data-id="{{item.sku_id}}" bindtap="selectSku">{{item.product_name}} · {{item.sku_name}} · 库存 {{item.stock_quantity}}</view>
+    <view class="card form">
+      <input placeholder="数量，正数入库/负数出库" type="number" value="{{quantity}}" data-field="quantity" bindinput="onInput" />
+      <input placeholder="调整原因" value="{{reason}}" data-field="reason" bindinput="onInput" />
+      <button class="primary-btn" bindtap="changeStock">确认库存调整</button>
+    </view>
+  </view>
+</view>

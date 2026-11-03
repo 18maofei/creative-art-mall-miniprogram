@@ -1,4 +1,4 @@
-const { bootstrap, announcements, recordEvent } = require('../../services/api')
+const { bootstrap, recordEvent } = require('../../services/api')
 const app = getApp()
 
 Page({
@@ -18,7 +18,7 @@ Page({
   async loadData() {
     this.setData({ loading: true, loadError: '' })
     try {
-      const [data, notices] = await Promise.all([bootstrap(), announcements().catch(() => [])])
+      const data = await bootstrap()
       const courses = (data.courses || []).map(item => ({
         ...item,
         name: item.title,
@@ -26,7 +26,7 @@ Page({
         lessons: item.sessions || 0,
         cover: item.cover_url || ''
       }))
-      this.setData({ courses, artworks: data.artworks || [], notices: (notices || []).slice(0, 2), loading: false })
+      this.setData({ courses, artworks: data.artworks || [], notices: (data.announcements || []).slice(0, 2), loading: false })
     } catch (error) { this.setData({ loading: false, loadError: error.message || '内容加载失败，请重试' }) }
   },
   goCourse() { wx.switchTab({ url: '/pages/course/index' }) },

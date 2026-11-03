@@ -6,7 +6,7 @@
   </view>
 
   <view class="section">
-    <page-state error="{{loadError}}" bind:retry="loadCourses" />
+    <page-state loading="{{loading}}" error="{{loadError}}" bind:retry="loadCourses" />
     <view class="card form-card">
       <view class="form-title">联系信息</view>
       <view class="field"><text>联系人</text><input placeholder="请输入联系人姓名" maxlength="80" value="{{guardianName}}" data-field="guardianName" bindinput="onInput" /></view>

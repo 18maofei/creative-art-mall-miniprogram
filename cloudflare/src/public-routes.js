@@ -1,5 +1,4 @@
-import { all, first, run, lastInsertId, bodyOf, id, text, ok, requireUser, isoNow } from './core.js'
-import { serializeCourse, serializeProduct, HttpError } from './core.js'
+import { all, first, run, changedRows, lastInsertId, bodyOf, id, text, ok, requireUser, isoNow, HttpError, serializeCourse, serializeProduct } from './core.js'
 import { getAsset, normalizeKey, putAsset, verifyUploadToken } from './storage.js'
 import { notifyUsers, trialNotificationRecipients } from './notifications.js'
 
@@ -11,8 +10,21 @@ async function loadProducts(db, limit = null) {
   return products.map(product => serializeProduct(product, skus.filter(sku => Number(sku.product_id) === Number(product.id))))
 }
 
-function serializeArtwork(row) {
-  return { id: Number(row.id), title: row.title || '学员作品', kind: row.kind || 'ARTWORK', image_url: row.image_url, student_name: row.student_name, created_at: row.created_at }
+export function serializeArtwork(row) {
+  return {
+    id: Number(row.id), title: row.title || '学员作品', description: row.description || '',
+    kind: row.kind || 'ARTWORK', image_url: row.image_url, student_name: row.student_name,
+    created_at: row.created_at, likes_count: Number(row.likes_count || 0),
+    comments_count: Number(row.comments_count || 0), liked_by_me: Number(row.liked_by_me || 0) === 1
+  }
+}
+
+export function serializeArtworkComment(row) {
+  return {
+    id: Number(row.id), author_name: row.author_name || '用户', content: row.content,
+    status: row.status, created_at: row.created_at,
+    is_mine: row.is_mine === true || Number(row.is_mine || 0) === 1
+  }
 }
 
 function serializeTrialAppointment(row) {
@@ -51,14 +63,17 @@ async function trialAppointmentRow(db, appointmentId) {
   `, [appointmentId])
 }
 
-async function loadArtworks(db, limit = null, kind = '') {
+async function loadArtworks(db, limit = null, kind = '', userId = null) {
   const clauses = ['artworks.is_public = 1']
-  const params = []
+  const params = [Number(userId) || 0]
   if (kind === 'ARTWORK' || kind === 'MOMENT') { clauses.push('artworks.kind = ?'); params.push(kind) }
   const limitSql = limit ? ' LIMIT ?' : ''
   if (limit) params.push(limit)
   const rows = await all(db, `
-    SELECT artworks.*, children.name AS student_name
+    SELECT artworks.*, children.name AS student_name,
+      (SELECT COUNT(*) FROM artwork_likes WHERE artwork_id = artworks.id) AS likes_count,
+      (SELECT COUNT(*) FROM artwork_comments WHERE artwork_id = artworks.id AND status = 'PUBLISHED') AS comments_count,
+      EXISTS (SELECT 1 FROM artwork_likes WHERE artwork_id = artworks.id AND user_id = ?) AS liked_by_me
     FROM artworks LEFT JOIN children ON children.id = artworks.child_id
     WHERE ${clauses.join(' AND ')} ORDER BY artworks.id DESC${limitSql}
   `, params)
@@ -72,17 +87,95 @@ export function registerPublicRoutes(router) {
   })
 
   router.get('/api/public/bootstrap', async ctx => {
-    const [courses, products, artworks, announcements] = await Promise.all([
-      all(ctx.db, "SELECT * FROM courses WHERE status = 'ON_SALE' ORDER BY id DESC LIMIT 20"),
-      loadProducts(ctx.db, 20), loadArtworks(ctx.db, 12),
+    const [courses, artworks, announcements] = await Promise.all([
+      all(ctx.db, "SELECT * FROM courses WHERE status = 'ON_SALE' ORDER BY id DESC LIMIT 2"),
+      loadArtworks(ctx.db, 2),
       all(ctx.db, "SELECT * FROM announcements WHERE status = 'PUBLISHED' ORDER BY published_at DESC LIMIT 3")
     ])
-    return ok({ courses: courses.map(serializeCourse), products, artworks, announcements })
+    return ok({ courses: courses.map(serializeCourse), products: [], artworks, announcements })
   })
 
   router.get('/api/courses', async ctx => ok((await all(ctx.db, "SELECT * FROM courses WHERE status = 'ON_SALE' ORDER BY id DESC")).map(serializeCourse)))
   router.get('/api/products', async ctx => ok(await loadProducts(ctx.db)))
-  router.get('/api/artworks', async ctx => ok(await loadArtworks(ctx.db, null, String(ctx.url.searchParams.get('kind') || '').toUpperCase())))
+  router.get('/api/artworks', async ctx => {
+    const user = await requireUser(ctx).catch(() => null)
+    return ok(await loadArtworks(ctx.db, null, String(ctx.url.searchParams.get('kind') || '').toUpperCase(), user?.id))
+  })
+
+  router.get('/api/artworks/:id', async ctx => {
+    const artworkId = id(ctx.params.id, 'artworkId')
+    const user = await requireUser(ctx).catch(() => null)
+    const artwork = await first(ctx.db, `
+      SELECT artworks.*, children.name AS student_name,
+        (SELECT COUNT(*) FROM artwork_likes WHERE artwork_id = artworks.id) AS likes_count,
+        (SELECT COUNT(*) FROM artwork_comments WHERE artwork_id = artworks.id AND status = 'PUBLISHED') AS comments_count,
+        EXISTS (SELECT 1 FROM artwork_likes WHERE artwork_id = artworks.id AND user_id = ?) AS liked_by_me
+      FROM artworks LEFT JOIN children ON children.id = artworks.child_id
+      WHERE artworks.id = ? AND artworks.is_public = 1
+    `, [user?.id || 0, artworkId])
+    if (!artwork) throw new HttpError(404, '作品不存在或未公开')
+    const comments = await all(ctx.db, `
+      SELECT artwork_comments.id, artwork_comments.content, artwork_comments.status,
+             artwork_comments.created_at, users.display_name AS author_name,
+             CASE WHEN artwork_comments.user_id = ? THEN 1 ELSE 0 END AS is_mine
+      FROM artwork_comments JOIN users ON users.id = artwork_comments.user_id
+      WHERE artwork_comments.artwork_id = ?
+        AND (artwork_comments.status = 'PUBLISHED' OR artwork_comments.user_id = ?)
+      ORDER BY artwork_comments.id DESC LIMIT 50
+    `, [user?.id || 0, artworkId, user?.id || 0])
+    return ok({ artwork: serializeArtwork(artwork), comments: comments.map(serializeArtworkComment) })
+  })
+
+  router.put('/api/artworks/:id/like', async ctx => {
+    const artworkId = id(ctx.params.id, 'artworkId')
+    const user = await requireUser(ctx)
+    const body = await bodyOf(ctx)
+    if (typeof body.liked !== 'boolean') throw new HttpError(400, '点赞状态无效')
+    const artwork = await first(ctx.db, 'SELECT id FROM artworks WHERE id = ? AND is_public = 1', [artworkId])
+    if (!artwork) throw new HttpError(404, '作品不存在或未公开')
+    if (body.liked) {
+      await run(ctx.db, 'INSERT OR IGNORE INTO artwork_likes (artwork_id, user_id, created_at) VALUES (?, ?, ?)', [artworkId, user.id, isoNow()])
+    } else {
+      await run(ctx.db, 'DELETE FROM artwork_likes WHERE artwork_id = ? AND user_id = ?', [artworkId, user.id])
+    }
+    const likesCount = await first(ctx.db, 'SELECT COUNT(*) AS total FROM artwork_likes WHERE artwork_id = ?', [artworkId])
+    return ok({ liked: body.liked, likes_count: Number(likesCount?.total || 0) })
+  })
+
+  router.post('/api/artworks/:id/comments', async ctx => {
+    const artworkId = id(ctx.params.id, 'artworkId')
+    const user = await requireUser(ctx)
+    const body = await bodyOf(ctx)
+    const content = text(body.content, '评论内容')
+    if ([...content].length > 500) throw new HttpError(400, '评论不能超过 500 个字')
+    const artwork = await first(ctx.db, 'SELECT id FROM artworks WHERE id = ? AND is_public = 1', [artworkId])
+    if (!artwork) throw new HttpError(404, '作品不存在或未公开')
+    const now = isoNow()
+    const result = await run(ctx.db, `
+      INSERT INTO artwork_comments (artwork_id, user_id, content, status, created_at, updated_at)
+      VALUES (?, ?, ?, 'PENDING', ?, ?)
+    `, [artworkId, user.id, content, now, now])
+    const comment = await first(ctx.db, `
+      SELECT artwork_comments.id, artwork_comments.content, artwork_comments.status,
+             artwork_comments.created_at, users.display_name AS author_name,
+             1 AS is_mine
+      FROM artwork_comments JOIN users ON users.id = artwork_comments.user_id
+      WHERE artwork_comments.id = ?
+    `, [lastInsertId(result)])
+    return ok(serializeArtworkComment(comment), 201)
+  })
+
+  router.delete('/api/artworks/:id/comments/:commentId', async ctx => {
+    const artworkId = id(ctx.params.id, 'artworkId')
+    const commentId = id(ctx.params.commentId, 'commentId')
+    const user = await requireUser(ctx)
+    const result = await run(ctx.db, `
+      DELETE FROM artwork_comments
+      WHERE id = ? AND artwork_id = ? AND user_id = ?
+    `, [commentId, artworkId, user.id])
+    if (!changedRows(result)) throw new HttpError(404, '评论不存在或无权删除')
+    return ok({ id: commentId, deleted: true })
+  })
 
   router.get('/api/announcements', async ctx => {
     const audience = String(ctx.url.searchParams.get('audience') || '').toUpperCase()

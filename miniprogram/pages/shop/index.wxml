@@ -5,13 +5,13 @@
   </view>
   <view class="section shop-section">
     <view class="section-head"><text class="section-title">精选材料</text><text class="muted">给创作更多可能</text></view>
-    <view class="shop-card card" wx:for="{{products}}" wx:key="id">
+    <view class="shop-card card" wx:for="{{products}}" wx:key="id" data-id="{{item.id}}" bindtap="openDetail">
       <view class="product-media"><image wx:if="{{item.cover_url}}" class="product-image" src="{{item.cover_url}}" mode="aspectFill"/><view wx:else class="product-art product-{{index}}"><view class="product-shape"></view></view></view>
       <view class="product-info">
         <text class="product-name">{{item.name}}</text>
         <text class="product-category">{{item.category || '创作材料'}}</text>
         <text class="muted product-desc">{{item.desc}}</text>
-        <view class="buy-row"><text class="price">¥{{item.price}}</text><button class="outline-btn" data-index="{{index}}" bindtap="add"><text class="button-plus">＋</text>加入购物车</button></view>
+        <view class="buy-row"><text class="price">¥{{item.price}}</text><button class="outline-btn" data-index="{{index}}" catchtap="add"><text class="button-plus">＋</text>加入购物车</button></view>
       </view>
     </view>
     <page-state loading="{{loading}}" error="{{loadError}}" empty="{{!products.length}}" empty-text="{{keyword ? '没有找到匹配的商品，换个关键词试试' : '暂无在售商品'}}" bind:retry="loadData" />
