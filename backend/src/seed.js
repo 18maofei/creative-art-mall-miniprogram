@@ -1,9 +1,15 @@
+import 'dotenv/config'
 import { getDb } from './db.js'
 import { passwordHash } from './auth.js'
 import { pathToFileURL } from 'node:url'
 
-// 默认后台账号：画室管理员 / ZhiXing@Admin2026（首次种子写入，改过密码后不会被覆盖）
-const DEFAULT_ADMIN_PASSWORD = 'ZhiXing@Admin2026'
+function seedAdminPassword() {
+  const password = String(process.env.ADMIN_PASSWORD || '').trim()
+  if (password.length < 12 || /replace|change.?me|your_|example|placeholder/i.test(password)) {
+    throw new Error('Set a unique ADMIN_PASSWORD of at least 12 characters in backend/.env before seeding.')
+  }
+  return password
+}
 
 async function firstId(db, sql, params) {
   const [rows] = await db.query(sql, params)
@@ -99,14 +105,15 @@ async function ensureOrder(db, orderNo, fields) {
 }
 
 export async function seedDatabase() {
+  const adminPassword = seedAdminPassword()
   const db = getDb()
   const parentId = await ensureUser(db, 'demo-parent-001', '李女士', 'PARENT', '13800000001')
   const teacherId = await ensureUser(db, 'demo-teacher-001', '王老师', 'TEACHER', '13800000002')
   const adminId = await ensureUser(db, 'demo-admin-001', '画室管理员', 'ADMIN', '13800000003')
   const studentId = await ensureUser(db, 'demo-student-001', '小画家', 'STUDENT', null)
   const operatorId = await ensureUser(db, 'demo-operator-001', '运营同学', 'OPERATOR', '13800000005')
-  await db.query('UPDATE users SET admin_password_hash = ? WHERE id = ? AND admin_password_hash IS NULL', [passwordHash(DEFAULT_ADMIN_PASSWORD), adminId])
-  await db.query('UPDATE users SET admin_password_hash = ? WHERE id = ? AND admin_password_hash IS NULL', [passwordHash(DEFAULT_ADMIN_PASSWORD), operatorId])
+  await db.query('UPDATE users SET admin_password_hash = ? WHERE id = ? AND admin_password_hash IS NULL', [passwordHash(adminPassword), adminId])
+  await db.query('UPDATE users SET admin_password_hash = ? WHERE id = ? AND admin_password_hash IS NULL', [passwordHash(adminPassword), operatorId])
 
   const leleId = await ensureChild(db, '乐乐', 'MALE')
   const ananId = await ensureChild(db, '安安', 'FEMALE')
@@ -260,7 +267,7 @@ export async function seedDatabase() {
     parentUserId: parentId, teacherUserId: teacherId, adminUserId: adminId, operatorUserId: operatorId, studentUserId: studentId,
     leleId, ananId, xiaomiId, classId, sessionId, nextSessionId,
     courseIds: [artCourseId, advCourseId], addressId,
-    adminAccount: { name: '画室管理员', password: DEFAULT_ADMIN_PASSWORD }
+    adminAccount: { name: '画室管理员' }
   }
 }
 

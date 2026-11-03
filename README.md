@@ -84,6 +84,7 @@ docker compose -p art-studio up -d
 cd backend
 npm install
 npm run db:migrate
+# Set a unique ADMIN_PASSWORD in backend/.env before seeding.
 npm run db:seed
 npm run dev        # http://127.0.0.1:3000
 ```
@@ -195,7 +196,7 @@ npm run dev        # http://127.0.0.1:3000
 
 1. **填写并验证真实微信支付**：Worker 已包含微信支付 V3 JSAPI 下单、支付回调验签入账、退款申请和退款回调适配器，但生产默认仍是 `PAYMENT_MODE=disabled`。申请微信支付商户号，配置商户 API 私钥、商户证书序列号、API v3 密钥、微信支付平台证书和 HTTPS 回调地址，完成沙箱/小额实付与退款验证后再把 Worker 与小程序的 `paymentMode` 同时切换为 `wechat`。
 2. **关闭开发登录**：Cloudflare 的 `ALLOW_DEV_AUTH=false`、`PAYMENT_MODE=disabled`、`WECHAT_PAY_ENABLED=false`，Fastify 生产环境还要设置 `NODE_ENV=production`。真实支付代码上线后再把支付模式切换为 `wechat` 并按支付实现启用开关。这样 `X-Admin-User-Id` / `X-User-Id`、`devOpenid` 和开发接口都不会作为登录依据。
-3. **更换密钥与口令**：`SESSION_SECRET`、数据库密码、默认管理员密码全部重置；密钥只放 Cloudflare Secret 或部署环境变量，不进入小程序包、GitHub 或 Notion。
+3. **管理密钥与口令**：`SESSION_SECRET`、数据库密码及管理员口令使用独立强随机值；本地种子管理员口令通过 `ADMIN_PASSWORD` 环境变量提供。密钥只放 Cloudflare Secret 或部署环境变量，不进入小程序包、GitHub 或 Notion。
 4. **配置微信登录**：在 Cloudflare `.secrets.json` 填入真实 `WECHAT_APP_ID` / `WECHAT_APP_SECRET` 后执行部署；新注册用户默认无角色，家长/教师身份需管理员在后台绑定。
 5. **配置线上地址**：在项目根目录 `config/release.json` 中填写 Worker HTTPS 地址 `apiBaseUrl` 和管理端来源 `corsOrigin`，运行 `npm run config:sync` 自动同步到 Cloudflare 和小程序配置；不要填 `127.0.0.1`、`localhost` 或占位符。微信公众平台的 request 合法域名也要填写 Worker 域名。
 6. **限制管理端跨域**：`config/release.json` 的 `corsOrigin` 应为实际管理端来源；管理台和 API 同域时可直接填写 Worker 管理台地址。
